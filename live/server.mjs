@@ -102,7 +102,7 @@ const DEFAULT_SETTINGS = {
   socialVoice: true,                 // cảm ơn theo dõi, chia sẻ
   mindfulEveryMin: 7,                // lời nhắc thiền giữa các thời tụng (0 = tắt)
   hallEveryMin: 10,                  // có ảnh trong assets/gian-tho thì đổi gian thờ mỗi chừng ấy phút (0 = không đổi)
-  seatMode: 'auto',                // auto | 24 | 36 | 64 | 100
+  seatMode: 'auto',                // auto | 24 | 36 | 64 | 100 | 144 | 200
   joinOnEnter: false,                // also seat viewers who only enter the room
   aiNote: true,                      // dòng nhỏ ghi rõ hình, nhạc, giọng đọc do AI tạo
 };
@@ -114,7 +114,7 @@ const SETTING_RULES = {
   chantEveryMin: v => clamp(v, 1, 60), thankMin: v => clamp(v, 1, 50000), mindfulEveryMin: v => clamp(v, 0, 60), hallEveryMin: v => clamp(v, 0, 120),
   music: Boolean, mo: Boolean, moChantOnly: Boolean, autoChant: Boolean, dedicateNames: Boolean,
   thankVoice: Boolean, welcomeVoice: Boolean, prayerReplies: Boolean, socialVoice: Boolean, joinOnEnter: Boolean, aiNote: Boolean,
-  seatMode: v => ['auto', '24', '36', '64', '100'].includes(String(v)) ? String(v) : 'auto',
+  seatMode: v => ['auto', ...CAPS.map(String)].includes(String(v)) ? String(v) : 'auto',
 };
 function applySettings(target, o){ for (const [k, fn] of Object.entries(SETTING_RULES)) if (o && k in o) target[k] = fn(o[k], target[k]); }
 
@@ -144,7 +144,8 @@ function skinFromText(t){
   return null;
 }
 const DEFAULT_SKINS = ['man', 'woman', 'woman', 'man', 'granny'];
-const CAPS = [24, 36, 64, 100];
+const CAPS = [24, 36, 64, 100, 144, 200];
+const MAX_SEATS = CAPS.at(-1);
 const DEMO_NAMES = ['Diệu Hạnh','Minh Tâm','Thiện Đức','Huệ An','Tịnh Nhã','Quảng Trí','Chơn Như','Pháp Hỷ','Nguyên Thanh','Tâm Đăng','Diệu Liên','Trí Hải','Phước Lộc','Hạnh Nguyện','Như Ý','Bảo Châu','Thanh Lương','Từ Tâm','An Lạc','Giác Hoa','Tuệ Minh','Liên Hương','Thu Hà','Ngọc Lan','Đức Anh','Hải Đăng','Mai Anh','Phương Thảo','Trung Kiên','Quang Huy','Bảo Ngọc','Diệu Linh'];
 const BOT_LINES = ['Nam mô A Di Đà Phật', 'Nam mô Bổn Sư Thích Ca Mâu Ni Phật', 'Cầu cho gia đình bình an', 'Con xin thành tâm sám hối', 'nữ', 'nam', 'bà',
   'Nguyện cầu cha mẹ mạnh khỏe', 'Mô Phật, an lạc quá', 'Chúc mọi người một ngày bình an', 'sư', 'Cầu công việc hanh thông',
@@ -219,7 +220,7 @@ class Channel {
     writeLog(`[${this.id}] ${s}`);
   }
   overlayClients(){ return [...wss.clients].filter(c => c.readyState === 1 && c.ch === this.id && c.role === 'overlay'); }
-  capacity(){ if (this.settings.seatMode !== 'auto') return +this.settings.seatMode; const n = this.viewers.size; return CAPS.find(c => n <= c) || 100; }
+  capacity(){ if (this.settings.seatMode !== 'auto') return +this.settings.seatMode; const n = this.viewers.size; return CAPS.find(c => n <= c) || MAX_SEATS; }
   pub(v){ return { id: v.id, name: v.name, skin: v.skin, avatar: v.avatar || '', coins: v.coins, demo: !!v.demo }; }
   snapshot(){
     return { t: 'state', ch: this.id, name: this.name, uniqueId: this.uniqueId, want: this.want, settings: this.settings,
@@ -244,7 +245,7 @@ class Channel {
   seat(id, name, opts = {}){
     let v = this.viewers.get(id);
     if (v){ v.lastAt = now(); if (opts.avatar) v.avatar = opts.avatar; return { v, isNew: false }; }
-    if (this.viewers.size >= 100){                     // full: the longest-quiet non-donor stands up
+    if (this.viewers.size >= MAX_SEATS){               // full: the longest-quiet non-donor stands up
       const quiet = [...this.viewers.values()].filter(x => x.coins === 0).sort((a, b) => a.lastAt - b.lastAt)[0];
       if (!quiet) return { v: null, isNew: false };
       this.viewers.delete(quiet.id); this.broadcast({ t: 'leave', id: quiet.id });
@@ -495,7 +496,7 @@ class Channel {
   /* ---- test data ---- */
   fillDemo(n){
     const have = [...this.viewers.values()].filter(v => v.demo).length;
-    for (let i = have; i < n && this.viewers.size < 100; i++){
+    for (let i = have; i < n && this.viewers.size < MAX_SEATS; i++){
       const name = DEMO_NAMES[i % DEMO_NAMES.length] + (i >= DEMO_NAMES.length ? ' ' + (Math.floor(i / DEMO_NAMES.length) + 1) : '');
       this.seat('demo_' + i, name, { demo: true, skin: ['man','woman','woman','man','granny','monk','nun','child'][i % 8] });
     }
@@ -535,7 +536,7 @@ class Channel {
       case 'chat': { const n = String(m.name || 'Khách').slice(0, 18); this.onChat('sim_' + n, n, String(m.text || 'Nam mô A Di Đà Phật').slice(0, 120)); break; }
       case 'mindful': this.mindful(); break;
       case 'gift': { const n = String(m.name || 'Khách').slice(0, 18); this.onGift('sim_' + n, n, String(m.gift || 'Hoa hồng').slice(0, 30), clamp(m.count, 1, 99), clamp(m.diamonds, 1, 50000)); break; }
-      case 'fill': this.fillDemo(clamp(m.n, 1, 100)); this.addLog(`Đổ người mẫu: ${this.viewers.size} người`); break;
+      case 'fill': this.fillDemo(clamp(m.n, 1, MAX_SEATS)); this.addLog(`Đổ người mẫu: ${this.viewers.size} người`); break;
       case 'clear': this.viewers.clear(); this.broadcast(this.snapshot()); this.addLog('Đã làm trống bồ đoàn'); break;
       case 'bell': this.broadcast({ t: 'bell' }); break;
       case 'mo': this.broadcast({ t: 'mo1' }); break;
