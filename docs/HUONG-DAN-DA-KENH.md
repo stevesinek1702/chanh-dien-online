@@ -98,7 +98,7 @@ Tiếng của Chrome kênh nào chỉ vào sink của kênh đó, nên các kên
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash - && sudo apt-get install -y nodejs git
 
 # 2. Đặt dự án ở /opt (không đặt trong /root: user chạy dịch vụ không đọc được)
-sudo git clone https://github.com/kentjuno/chanh-dien-online.git /opt/chanh-dien-online
+sudo git clone https://github.com/stevesinek1702/chanh-dien-online.git /opt/chanh-dien-online
 
 # 3. Cài Xvfb, PulseAudio, ffmpeg, Google Chrome, font; tạo user chanhdien; bật dịch vụ cho kenh1
 sudo bash /opt/chanh-dien-online/deploy/linux/cai-dat.sh kenh1
