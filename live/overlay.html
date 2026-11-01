@@ -464,7 +464,7 @@ function frame(now){
     const breathe = v.state==='sit' ? Math.sin(t*1.1+v.phase)*2*ws : 0, bowK = v.state==='sit' ? Math.sin(Math.min(1,v.bow)*Math.PI)*.04 : v.state==='bow' ? Math.max(0,Math.sin(v.bowT/1.2*Math.PI))*.16 : 0;
     ctx.save(); ctx.globalAlpha=v.fade; ctx.translate(v.x,v.y); if (bowK) ctx.transform(1,0,0,1-bowK,0,0);
     let topY;
-    // Hình người vẽ nghiêng 3/4 sang phải. Ngồi ở nửa phải thì lật lại: cả hai khối đều nghiêng vào giữa, hướng về tượng.
+    // Dáng ngồi đã là lưng thẳng, đối xứng. Các khung đi và đang ngồi xuống còn nghiêng 3/4 sang phải: ở nửa phải thì lật lại cho hướng vào giữa.
     const seated = v.state==='sit' || v.state==='sitting' || v.state==='standup' || v.state==='kneel' || v.state==='bow';
     if (seated ? v.x>545 : v.flip) ctx.scale(-1,1);
     if (anim){ const a=ANIM[v.skin], k=ws*1.05*260/a.seatH; ctx.drawImage(A['anim_'+v.skin], v.frame*a.fw,0,a.fw,a.fh, -a.fw*k/2, -a.fh*k+breathe, a.fw*k, a.fh*k); topY=(v.state==='sit'?a.seatH:a.fh*.97)*k; }
