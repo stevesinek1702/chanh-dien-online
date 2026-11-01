@@ -1,0 +1,21 @@
+# Một kênh phát: Xvfb + PulseAudio + Chrome + ffmpeg. %i là mã kênh (kenh1, kenh2…).
+#   sudo systemctl enable --now chanh-dien-kenh@kenh1
+# Cài bằng deploy/linux/cai-dat.sh (thay @ROOT@ bằng thư mục dự án).
+[Unit]
+Description=Chanh Dien Online - phat kenh %i len RTMP
+After=chanh-dien-server.service network-online.target
+Wants=chanh-dien-server.service network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+User=chanhdien
+RuntimeDirectory=chanh-dien-%i
+StateDirectory=chanh-dien
+Environment=PORT=3000
+ExecStart=/bin/bash @ROOT@/deploy/linux/phat-kenh.sh %i
+Restart=always
+RestartSec=10
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

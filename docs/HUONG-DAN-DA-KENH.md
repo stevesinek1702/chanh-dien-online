@@ -63,13 +63,114 @@ Những gì bạn cần làm trên máy:
 
 ## 4. Chạy trên VPS
 
-Khuyên dùng **VPS Windows** vì làm y hệt máy nhà: cài Node.js, Chrome, OBS, chép thư mục dự án, chạy `Chay-Live.cmd`, cấu hình OBS như mục 2. Điều khiển qua Remote Desktop.
+Hai cách, cách nào cũng cần stream key cho từng tài khoản (mục 2, bước 1):
 
-- **Cấu hình gợi ý cho 3–4 kênh** (VPS thường không có card đồ họa, OBS mã hóa bằng CPU x264 *veryfast*, 720×1280 30fps): 8–12 vCPU, 16 GB RAM, băng thông upload ≥ 20 Mbps. Thử một kênh trước, xem CPU, rồi mới thêm.
-- **Không mở cổng 3000 ra Internet.** Server cố ý chỉ nghe `127.0.0.1` và không có đăng nhập; vào bảng tổng qua Remote Desktop.
-- **Tự chạy khi VPS khởi động lại**: Task Scheduler → *At log on* → chạy `Chay-Live.cmd`; bật tự đăng nhập Windows; OBS thêm tham số `--startstreaming` vào lối tắt của từng profile.
+- **VPS Windows**: làm y hệt máy nhà (Node.js, Chrome, OBS, `Chay-Live.cmd`), điều khiển qua Remote Desktop. Dễ nhất nếu đã quen OBS.
+- **VPS Linux** (Ubuntu 22.04/24.04, Debian 12): không cần màn hình, không cần OBS, không cần card đồ họa. Rẻ hơn và nhẹ hơn; mọi thứ tự chạy lại bằng systemd. Script nằm trong `deploy/linux/`.
+
+Chung cho cả hai:
+
+- **Không mở cổng 3000 ra Internet.** Server cố ý chỉ nghe `127.0.0.1` và không có đăng nhập. Windows: vào bảng tổng qua Remote Desktop. Linux: qua đường hầm SSH (bên dưới).
 - **IP trung tâm dữ liệu**: TikTok có thể xử lý luồng phát từ IP máy chủ khác với IP nhà mạng, và gói Euler miễn phí giới hạn theo IP. Theo dõi kỹ vài ngày đầu.
-- **VPS Linux**: làm được nhưng cần thêm Xvfb, PulseAudio và ffmpeg để dựng overlay rồi đẩy RTMP. Phần đó chưa có trong dự án và chưa được kiểm thử.
+- **Lưu lượng**: một kênh 3000 + 128 kbps chạy 24h là khoảng **34 GB/ngày, ~1 TB/tháng**. 4 kênh là ~4 TB/tháng. Nhiều gói VPS giới hạn 1–2 TB/tháng rồi bóp băng thông hoặc tính thêm tiền: xem kỹ trước khi mua.
+
+### 4.1. VPS Windows
+
+- **Cấu hình gợi ý cho 3–4 kênh** (OBS mã hóa bằng CPU x264 *veryfast*, 720×1280 30fps): 8–12 vCPU, 16 GB RAM, upload ≥ 20 Mbps. Thử một kênh trước, xem CPU, rồi mới thêm.
+- **Tự chạy khi VPS khởi động lại**: Task Scheduler → *At log on* → chạy `Chay-Live.cmd`; bật tự đăng nhập Windows; OBS thêm tham số `--startstreaming` vào lối tắt của từng profile.
+
+### 4.2. VPS Linux
+
+Mỗi kênh là một dịch vụ systemd `chanh-dien-kenh@<mã kênh>` gồm bốn phần chạy cùng nhau:
+
+```
+Xvfb :101  (màn hình ảo 720×1280, không cần card đồ họa)   ─┐
+Chrome kiosk  → http://localhost:3000/live/overlay.html?ch=kenh1 ├─▶ ffmpeg (x11grab + pulse, x264 veryfast, AAC 128k) ─▶ RTMP TikTok @kenhA
+PulseAudio riêng của kênh, null-sink chanhdien_kenh1             ─┘
+```
+
+Tiếng của Chrome kênh nào chỉ vào sink của kênh đó, nên các kênh không lẫn tiếng nhau. Server `chanh-dien-server` dùng chung cho mọi kênh, như trên Windows.
+
+**Cài đặt** (SSH vào VPS bằng user có `sudo`):
+
+```bash
+# 1. Node.js 22 và git
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash - && sudo apt-get install -y nodejs git
+
+# 2. Đặt dự án ở /opt (không đặt trong /root: user chạy dịch vụ không đọc được)
+sudo git clone https://github.com/kentjuno/chanh-dien-online.git /opt/chanh-dien-online
+
+# 3. Cài Xvfb, PulseAudio, ffmpeg, Google Chrome, font; tạo user chanhdien; bật dịch vụ cho kenh1
+sudo bash /opt/chanh-dien-online/deploy/linux/cai-dat.sh kenh1
+
+# 4. Dán Server URL và Stream key của tài khoản phát kenh1
+sudo nano /etc/chanh-dien/kenh1.env
+```
+
+Trong vòng 60 giây sau khi lưu file, kênh tự bắt đầu đẩy luồng. Vào TikTok LIVE Center thấy có tín hiệu thì bấm phát.
+
+Khóa phát nằm trong `/etc/chanh-dien/` (chỉ root và user `chanhdien` đọc được), không nằm trong thư mục dự án. `.gitignore` chặn mọi file `*.env` phòng khi lỡ chép vào dự án. Nhật ký chỉ in 4 ký tự đầu của khóa.
+
+**Mở bảng tổng từ máy của bạn** (để nối tài khoản TikTok, chỉnh từng kênh):
+
+```bash
+ssh -L 3000:127.0.0.1:3000 <user>@<IP VPS>
+```
+
+Giữ cửa sổ SSH đó, rồi mở `http://localhost:3000/` trên máy mình. Cổng bên máy bạn phải đúng là `3000`, vì server chỉ nhận đúng tên `localhost:3000`. Nếu máy nhà đang chạy `Chay-Live.cmd` thì tắt trước.
+
+**Kiểm tra hình và tiếng** (không cần màn hình):
+
+```bash
+sudo bash /opt/chanh-dien-online/deploy/linux/kiem-tra.sh kenh1
+```
+
+Lệnh in trạng thái dịch vụ, số overlay đang mở và có tiếng. Nó chụp một ảnh màn hình ảo vào `/var/lib/chanh-dien/anh-kenh1.png` (tải về bằng `scp`), rồi đo âm lượng 8 giây của kênh.
+
+**Thêm kênh**: chạy lại `cai-dat.sh` với đủ danh sách, ví dụ `sudo bash …/cai-dat.sh kenh1 kenh2 kenh3`. Lệnh không ghi đè file cấu hình đã có. Sau đó điền khóa vào `kenh2.env`, `kenh3.env`. Mã kênh phải trùng mã trên bảng tổng (`kenh1`…`kenh4` có sẵn).
+
+**Vận hành hằng ngày**
+
+| Việc | Lệnh |
+|---|---|
+| Xem nhật ký một kênh | `journalctl -u chanh-dien-kenh@kenh1 -f` |
+| Xem nhật ký server | `journalctl -u chanh-dien-server -f` (thêm nhật ký theo ngày ở `/var/lib/chanh-dien/data/logs/`) |
+| Trạng thái tất cả | `systemctl status 'chanh-dien-*'` và `curl -s http://127.0.0.1:3000/health` |
+| Đổi stream key | sửa `/etc/chanh-dien/kenh1.env`. Lần nối lại kế tiếp tự dùng khóa mới; muốn ngay: `sudo systemctl restart chanh-dien-kenh@kenh1` |
+| Tạm dừng một kênh | `sudo systemctl stop chanh-dien-kenh@kenh1` (thêm `disable` để khởi động lại máy cũng không chạy) |
+| Cập nhật code | `cd /opt/chanh-dien-online && sudo git pull && sudo bash deploy/linux/cai-dat.sh kenh1 kenh2 …` |
+
+**Tự phục hồi khi chạy 24h**
+
+| Sự cố | Cách xử lý |
+|---|---|
+| ffmpeg rớt (mạng, TikTok ngắt luồng, khóa hết hạn) | Phát lại sau 5 giây. Lỗi liên tiếp thì giãn dần tới 2 phút. Mỗi lần phát lại đọc lại file cấu hình |
+| Chưa điền khóa | Kênh vẫn dựng hình và tiếng (xem được bằng `kiem-tra.sh`), cứ 60 giây đọc lại file khóa |
+| Chrome chết | Mở lại ngay, mỗi lần một hồ sơ trắng (không có hộp "khôi phục trang", không có trang "có gì mới" sau khi Chrome cập nhật) |
+| Overlay mất hình hoặc mất tiếng (server thấy 0 overlay hoặc 0 overlay có tiếng trong ~90 giây) | Mở lại Chrome. Vẫn lỗi thì lần sau chờ lâu hơn, tới tối đa 15 phút |
+| Xvfb hoặc PulseAudio chết | systemd dựng lại cả kênh sau 10 giây |
+| Server chết | systemd chạy lại sau 5 giây; overlay tự nối lại, không cần mở lại Chrome |
+| VPS khởi động lại | Các dịch vụ đã bật tự chạy; kênh chờ server lên rồi mới mở Chrome |
+
+**Cấu hình VPS gợi ý cho 3–4 kênh 720×1280 30fps**
+
+Mỗi kênh tốn CPU cho hai việc: Chrome vẽ overlay bằng CPU (không có card đồ họa), và x264 *veryfast* mã hóa hình. Ước tính 2–3 vCPU và khoảng 1–1,5 GB RAM mỗi kênh.
+
+| Số kênh | vCPU | RAM | Upload |
+|---|---|---|---|
+| 1 (chạy thử) | 4 | 4 GB | ≥ 10 Mbps |
+| 3 | 8–10 | 8 GB | ≥ 20 Mbps |
+| 4 | 10–12 | 12–16 GB | ≥ 25 Mbps |
+
+- Nên chọn gói **vCPU riêng (dedicated)**. vCPU dùng chung hay bị máy khác chiếm, làm hình giật và rớt khung.
+- 1080×1920 tốn gần gấp đôi CPU so với 720×1280; trên VPS không có card đồ họa nên giữ 720×1280.
+- Con số trên là ước tính, chưa đo trên VPS thật. Chạy **một kênh trước**, xem `top` vài giờ. CPU dưới 70% thì thêm kênh. CPU cao thì đổi `X264_PRESET=superfast` hoặc hạ `FPS=25` trong file `.env` của kênh.
+- **Cập nhật tự động**: `unattended-upgrades` mặc định không tự khởi động lại máy; đừng bật `Automatic-Reboot`. Lỡ khởi động lại thì các dịch vụ tự chạy lại.
+
+**Tình trạng kiểm thử phần Linux**
+
+- Đã kiểm trên máy phát triển: dùng đúng bộ tham số ffmpeg của script, đẩy RTMP tới một server RTMP cục bộ (`ffmpeg -listen 1`). Luồng nhận được là H.264 High 720×1280 30fps + AAC 44,1 kHz stereo, khoảng 3,2 Mbps, khung khóa đúng mỗi 2 giây; khóa kiểu TikTok có `?…&…` đi qua nguyên vẹn. Chrome bật cờ autoplay mở overlay thì server báo "1 overlay, 1 có tiếng" (đúng cái bộ canh overlay đọc). Phần đo hình và tiếng của `kiem-tra.sh` phân biệt được có tiếng và im lặng.
+- **Chưa kiểm**, vì máy phát triển không có WSL/Docker: chạy thật Xvfb + PulseAudio + Chrome kiosk + chụp `x11grab`/`pulse` trên Linux, `cai-dat.sh`, các unit systemd, mức CPU thực tế, và đẩy lên TikTok thật. Lần đầu cài lên VPS, chạy `kiem-tra.sh` và xem `journalctl` trước khi bấm phát.
 
 ## 5. Để các kênh không bị coi là nội dung trùng lặp
 

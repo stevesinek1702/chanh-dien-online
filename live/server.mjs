@@ -653,7 +653,8 @@ const server = http.createServer((req, res) => {
   if (p === '/health') {
     const mem = process.memoryUsage();
     sendJSON(res, { ok: true, uptimeSec: Math.round((now() - serverStartedAt) / 1000), rssMB: Math.round(mem.rss / 1048576), heapMB: Math.round(mem.heapUsed / 1048576),
-      clients: wss.clients.size, channels: [...channels.values()].map(c => ({ id: c.id, status: c.tt.status, seated: c.viewers.size, overlays: c.overlayClients().length, tts: c.ttsQueue.length })) });
+      clients: wss.clients.size, channels: [...channels.values()].map(c => { const ov = c.overlayClients();
+        return { id: c.id, status: c.tt.status, seated: c.viewers.size, overlays: ov.length, audio: ov.filter(w => w.audio).length, tts: c.ttsQueue.length }; }) });
     return;
   }
   const tts = p.startsWith('/tts/');

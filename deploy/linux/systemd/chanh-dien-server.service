@@ -1,0 +1,26 @@
+# Cài bằng deploy/linux/cai-dat.sh (thay @ROOT@ bằng thư mục dự án).
+[Unit]
+Description=Chanh Dien Online - server (overlay, bang tong)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+User=chanhdien
+WorkingDirectory=@ROOT@/live
+StateDirectory=chanh-dien
+Environment=DATA_DIR=/var/lib/chanh-dien/data
+# Chỉ nghe 127.0.0.1: không mở cổng 3000 ra Internet. Vào bảng tổng qua đường hầm SSH.
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+# SIGN_API_KEY=… (khóa Euler Stream) đặt trong file này
+EnvironmentFile=-/etc/chanh-dien/server.env
+ExecStart=/usr/bin/env node server.mjs
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=full
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

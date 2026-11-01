@@ -6,6 +6,7 @@ Thiền đường 2.5D cho TikTok LIVE, chạy **nhiều kênh cùng lúc** từ
 |---|---|
 | `live/` | Bộ phát LIVE: server Node đa kênh, bảng tổng, bảng điều khiển từng kênh, overlay 9:16 |
 | `index.html`, `assets/` | Bản web tĩnh để tự vào ngồi thử, và hình, nhạc dùng chung |
+| `deploy/linux/` | Phát 24h trên VPS Linux không màn hình: Xvfb, PulseAudio, Chrome, ffmpeg, systemd |
 | `docs/` | Hướng dẫn chạy nhiều kênh, chạy 24h trên VPS, báo cáo đánh giá |
 
 ## Chạy

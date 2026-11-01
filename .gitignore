@@ -5,3 +5,5 @@ live/data/
 .env.*
 .DS_Store
 Thumbs.db
+# khóa phát và cấu hình kênh (trên VPS nằm ở /etc/chanh-dien/*.env); đừng để trong thư mục dự án
+*.env

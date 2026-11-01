@@ -1,0 +1,4 @@
+# script và cấu hình cho Linux phải giữ xuống dòng LF, kể cả khi clone trên Windows
+*.sh text eol=lf
+*.service text eol=lf
+*.env.example text eol=lf
