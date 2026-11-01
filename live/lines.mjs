@@ -6,34 +6,42 @@
 //  • không xin quà, không kêu gọi thả tim, theo dõi để đổi lấy bất cứ điều gì
 // Câu được chọn ngẫu nhiên và tránh lặp lại câu vừa nói, mỗi kênh một thứ tự riêng.
 
+// Quà: lời cảm ơn và lời CHÚC (không "nguyện cầu", không nhắc phước báu, công đức). Quà lớn (từ 99 xu) luôn có tiếng chuông.
 export const THANK = {
   small: [
-    'Xin cảm ơn {name} đã gửi tặng {gift}.',
-    'Cảm ơn {name} đã ghé thăm và gửi tặng {gift}. Chúc bạn một ngày an lành.',
-    '{name} vừa gửi tặng {gift}. Xin cảm ơn tấm lòng của bạn.',
-    'Cảm ơn {name} nhiều nhé. Chúc bạn thân tâm nhẹ nhàng.',
-    'Xin ghi nhận và cảm ơn {name} đã gửi tặng {gift}.',
-    'Cảm ơn {name}. Chúc bạn và gia đình luôn mạnh khỏe.',
-    'Cảm ơn {name} đã gửi tặng {gift}. Mong bạn ngồi lại thêm chút nữa, cùng thở và thư giãn.',
+    'Cảm ơn {name} đã gửi {gift}. Chúc bạn lòng nhẹ như mây, bước chân an như đất.',
+    'A Di Đà Phật, cảm ơn {name} đã gửi {gift}. Chúc bạn một ngày êm đềm như mặt hồ không gió.',
+    'Cảm ơn {name} đã gửi {gift}. Mong nụ cười luôn ở trên môi, và bình yên luôn ở trong lòng bạn.',
+    'Cảm ơn {name}. Như đóa sen nhỏ giữa hồ, chúc bạn luôn tươi mát giữa những bộn bề.',
+    '{gift} của {name} vừa đến thiền đường. Cảm ơn bạn, chúc bạn thân khỏe, tâm an.',
+    'Cảm ơn {name} đã gửi {gift}. Chúc mỗi hơi thở của bạn hôm nay đều nhẹ nhàng, thong thả.',
+    'Xin cảm ơn {name}. Chúc bạn đi đâu cũng gặp người hiền, làm gì cũng gặp duyên lành.',
+    'Cảm ơn {name} đã gửi {gift}. Chúc bạn và người thương luôn khỏe mạnh, đủ đầy.',
+    'A Di Đà Phật. Cảm ơn tấm lòng của {name}. Chúc bạn tìm thấy niềm vui trong từng việc nhỏ.',
   ],
   mid: [
-    'Xin chân thành cảm ơn {name} đã gửi tặng {gift}. Chúc bạn và gia đình luôn bình an, mạnh khỏe.',
-    'Cảm ơn {name} đã gửi tặng {gift}. Mong bạn có những giây phút tĩnh lặng thật an yên tại đây.',
-    '{name} vừa gửi tặng {gift}. Xin cảm ơn bạn, chúc bạn mọi việc hanh thông.',
-    'Thiền đường cảm ơn {name} đã gửi tặng {gift}. Chúc bạn một ngày thật nhẹ nhàng.',
-    'Xin cảm ơn {name} vì món quà {gift}. Chúc bạn luôn vui khỏe, bình yên.',
+    'Thiền đường xin cảm ơn {name} đã gửi tặng {gift}. Chúc bạn thân an, tâm lạc, nhà cửa ấm êm, công việc thuận hòa.',
+    'Cảm ơn {name} đã gửi tặng {gift}. Chúc bạn sáng thức dậy thấy lòng nhẹ nhõm, tối trở về có người thương chờ đợi.',
+    'A Di Đà Phật. Xin cảm ơn {name} với món quà {gift}. Chúc bạn gặp nhiều duyên lành, đi đâu cũng được người thương mến.',
+    'Cảm ơn {name} đã gửi tặng {gift}. Như hương trầm lan nhẹ trong thiền đường, chúc sự an yên cũng lan đến bạn và gia đình.',
+    'Xin chân thành cảm ơn {name}. Chúc bạn vững như núi trước gió, mềm như nước quanh đá, an nhiên giữa đời.',
+    'Cảm ơn {name} đã gửi tặng {gift}. Chúc những điều bạn đang lo được nhẹ dần, những điều bạn đang mong sớm thành tựu.',
+    'Thiền đường cảm ơn {name}. Chúc bạn có sức khỏe để làm điều mình thích, có bình yên để thương những người mình thương.',
   ],
   big: [
-    'Xin chân thành cảm ơn {name} đã gửi tặng {gift}. Cảm ơn bạn đã đồng hành cùng thiền đường hôm nay. Chúc bạn và gia đình luôn an lạc, vạn sự tốt lành.',
-    'Thiền đường xin trân trọng cảm ơn {name} đã gửi tặng {gift}. Chúc bạn sức khỏe dồi dào, tâm luôn an tịnh.',
-    'Xin cảm ơn tấm lòng của {name} với món quà {gift}. Mong bạn luôn giữ được sự bình yên trong từng hơi thở.',
-    'Cảm ơn {name} rất nhiều vì {gift}. Chúc bạn và những người thân yêu một cuộc sống đầm ấm, an vui.',
+    'Thiền đường xin chắp tay cảm ơn {name} đã gửi tặng {gift}. Kính chúc bạn và gia đình thân tâm an lạc, phúc lộc đầy nhà, vạn sự như ý.',
+    'Tiếng chuông vừa ngân lên, thiền đường xin trân trọng cảm ơn {name} đã gửi tặng {gift}. Chúc bạn như sen tỏa hương giữa đầm, như trăng rằm sáng giữa trời.',
+    'Xin cảm ơn tấm lòng rộng mở của {name} với món quà {gift}. Chúc bạn sức khỏe dồi dào, trí tuệ sáng suốt, gia đạo bình an, mọi việc hanh thông.',
+    'A Di Đà Phật. Cảm ơn {name} đã gửi tặng {gift} và đã ngồi lại cùng mọi người hôm nay. Chúc bạn qua ngày giông gió vẫn giữ được lòng bình lặng, gặp ngày nắng đẹp lại càng thêm rạng rỡ.',
+    'Trân trọng cảm ơn {name} đã gửi tặng {gift}. Chúc bạn và những người thân yêu luôn khỏe mạnh, luôn có nhau, mỗi ngày đều thấy đủ đầy.',
+    'Theo tiếng chuông này, thiền đường gửi lời cảm ơn sâu sắc đến {name} vì {gift}. Chúc bạn tâm sáng như gương, lòng rộng như biển, đời an như núi.',
   ],
   group: [
-    'Xin cảm ơn {names} đã gửi quà tặng. Chúc các bạn một ngày bình an.',
-    'Cảm ơn {names} rất nhiều. Chúc các bạn và gia đình luôn mạnh khỏe.',
-    'Thiền đường xin cảm ơn {names} đã gửi tặng những món quà dễ thương. Chúc mọi người an lạc.',
-    'Xin cảm ơn {names}. Chúc các bạn luôn bình yên, mọi việc thuận lợi.',
+    'Thiền đường xin cảm ơn {names} đã gửi quà. Chúc các bạn và gia đình thân an, tâm lạc, mọi điều tốt lành.',
+    'Cảm ơn {names}. Chúc các bạn một ngày êm đềm, lòng nhẹ như mây, bước chân thong thả.',
+    'A Di Đà Phật, cảm ơn {names} đã gửi những món quà dễ thương. Chúc mọi người luôn khỏe mạnh, an vui bên người thương.',
+    'Xin cảm ơn {names}. Như những đóa sen cùng nở trong một hồ, chúc các bạn cùng an yên, cùng hạnh phúc.',
+    'Cảm ơn {names} đã gửi quà và ngồi lại cùng thiền đường. Chúc các bạn gặp nhiều duyên lành, mọi việc hanh thông.',
   ],
 };
 

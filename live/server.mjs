@@ -223,7 +223,7 @@ class Channel {
   snapshot(){
     return { t: 'state', ch: this.id, name: this.name, uniqueId: this.uniqueId, want: this.want, settings: this.settings,
       viewers: [...this.viewers.values()].map(v => this.pub(v)), cap: this.capacity(), startedAt: this.startedAt,
-      tiktok: this.tt, music: musicList(this.id), bots: !!this.botTimer };
+      tiktok: this.tt, music: musicList(this.id), bell: mp3s('chuong', this.id)[0] || null, bots: !!this.botTimer };
   }
   summary(){
     const ov = this.overlayClients();
@@ -571,12 +571,14 @@ function pushStatus(chId){
 
 // Nhạc: mọi file .mp3 trong assets/music. Kênh nào có thư mục riêng assets/music/<mã kênh>/ thì dùng nhạc riêng,
 // để các kênh không phát y hệt nhau.
-function musicList(chId){
-  const scan = (...dir) => { try { return fs.readdirSync(path.join(ROOT, 'assets', 'music', ...dir)).filter(f => /\.mp3$/i.test(f) && !f.startsWith('.')).sort(); } catch { return []; } };
+// Chuông cũng vậy: file .mp3 đầu tiên trong assets/chuong (hoặc assets/chuong/<mã kênh>/); không có thì overlay tự tạo tiếng chuông.
+function mp3s(folder, chId){
+  const scan = (...dir) => { try { return fs.readdirSync(path.join(ROOT, 'assets', folder, ...dir)).filter(f => /\.mp3$/i.test(f) && !f.startsWith('.')).sort(); } catch { return []; } };
   const own = scan(chId);
-  if (own.length) return own.map(f => `/assets/music/${chId}/${encodeURIComponent(f)}`);
-  return scan().map(f => `/assets/music/${encodeURIComponent(f)}`);
+  if (own.length) return own.map(f => `/assets/${folder}/${chId}/${encodeURIComponent(f)}`);
+  return scan().map(f => `/assets/${folder}/${encodeURIComponent(f)}`);
 }
+const musicList = chId => mp3s('music', chId);
 
 /* ------------------------------------------------------- channel store */
 let saveTimer = null;

@@ -7,3 +7,5 @@ live/data/
 Thumbs.db
 # khóa phát và cấu hình kênh (trên VPS nằm ở /etc/chanh-dien/*.env); đừng để trong thư mục dự án
 *.env
+# Chuông, nhạc tự thêm mà chưa chắc quyền dùng: giữ trên máy, không đưa lên GitHub
+assets/chuong/

@@ -98,6 +98,7 @@ addEventListener('resize', fit); fit();
 const A = {};
 const IMG = { hall:'/assets/hall.jpg', monk:'/assets/c_monk.png', nun:'/assets/c_nun.png', granny:'/assets/c_granny.png', man:'/assets/c_man.png',
   woman:'/assets/c_woman.png', child:'/assets/c_child.png', anim_man:'/assets/anim_man.png', anim_woman:'/assets/anim_woman.png', anim_granny:'/assets/anim_granny.png',
+  master:'/assets/c_master.png',                       // tùy chọn: hình vị trụ trì riêng; không có file thì dùng c_monk.png
   lotus:'/assets/fx_lotus.png', halo:'/assets/fx_halo.png', bell:'/assets/fx_bell.png', incense:'/assets/fx_incense.png', petal:'/assets/fx_petal.png' };
 for (const [k,src] of Object.entries(IMG)){ const im=new Image(); im.src=src; A[k]=im; }
 const ANIM = { man:{fw:212,fh:300,seatH:210}, woman:{fw:212,fh:300,seatH:220}, granny:{fw:195,fh:300,seatH:222} };
@@ -140,8 +141,21 @@ function reseat(){
 }
 document.getElementById('count').textContent = '0/24';
 
-/* the three illustrated monks in front of the altar: decoration only, no names, so nobody mistakes them for real clergy */
-const TEACHERS = [ { skin:'monk', x:300, y:1085, s:.36 }, { skin:'monk', x:540, y:1100, s:.4, master:true }, { skin:'monk', x:780, y:1085, s:.36 } ];
+/* one illustrated abbot on a raised dais in front of the altar, facing the Buddha: decoration only, no name,
+   so nobody mistakes him for a real monk. Sits on the floor between the altar table and the back row of cushions. */
+const MASTER = { x:540, y:1192, s:.44 };
+function dais(x,y,w){                                          // pháp tòa: bục sơn son thếp vàng
+  const h=24;
+  ctx.save();
+  ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x,y+h+3,w*.58,9,0,0,6.283); ctx.fill();
+  const g=ctx.createLinearGradient(0,y,0,y+h); g.addColorStop(0,'#9b2b17'); g.addColorStop(1,'#561209');
+  ctx.fillStyle=g; rr(x-w/2,y,w,h,6); ctx.fill();
+  const top=ctx.createLinearGradient(0,y-9,0,y+3); top.addColorStop(0,'#f0c766'); top.addColorStop(1,'#a8741f');
+  ctx.fillStyle=top; rr(x-w/2-7,y-9,w+14,12,5); ctx.fill();
+  ctx.strokeStyle='#e2b04f'; ctx.lineWidth=2; rr(x-w/2+9,y+6,w-18,h-11,3); ctx.stroke();
+  ctx.fillStyle='#e2b04f'; ctx.beginPath(); ctx.arc(x,y+h/2+.5,4,0,6.283); ctx.fill();
+  ctx.restore();
+}
 
 function addVisitor(p, instant){
   if (visitors.has(p.id)) { Object.assign(visitors.get(p.id), { name:p.name, skin:p.skin, avatar:p.avatar, coins:p.coins }); return; }
@@ -207,8 +221,20 @@ function nextTrack(){
 }
 function duck(on){ if(!musicGain) return; const t=AC.currentTime, target = !settings.music ? 0 : on ? .14 : .5; musicGain.gain.cancelScheduledValues(t); musicGain.gain.setValueAtTime(musicGain.gain.value,t); musicGain.gain.linearRampToValueAtTime(target,t+.5); }
 let haloPulse=0;
+// Chuông thu âm (assets/chuong) nếu có: mỗi lần thỉnh phát tối đa 9 giây đầu rồi tắt dần. Không có file thì tự tạo tiếng chuông.
+let bellBuf=null, bellUrl=null;
+function loadBell(url){
+  if (url===bellUrl) return; bellUrl=url; bellBuf=null;
+  if (url) fetch(url).then(r=>r.arrayBuffer()).then(b=>AC.decodeAudioData(b)).then(buf=>{ if (bellUrl===url) bellBuf=buf; }).catch(()=>{});
+}
 function bell(big){
   if(!audioOn) return; const t=AC.currentTime, k=big?1.7:1;
+  if (bellBuf){
+    const src=AC.createBufferSource(), g=AC.createGain(), len=Math.min(bellBuf.duration,9), v=big?.85:.6;
+    src.buffer=bellBuf; g.gain.setValueAtTime(v,t); g.gain.setValueAtTime(v,Math.max(t,t+len-1.5)); g.gain.linearRampToValueAtTime(0,t+len);
+    src.connect(g); g.connect(sfx); src.start(t,0,len); src.onended=()=>{ src.disconnect(); g.disconnect(); };
+    haloPulse=1; return;
+  }
   for (const [f,a,d] of [[216,.55,7],[432,.35,5],[1296,.12,3],[2160,.05,2]]) { const o=AC.createOscillator(); o.type='sine'; o.frequency.value=f*(big?.75:1); const g=AC.createGain(); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(a*k*.7,t+.015); g.gain.exponentialRampToValueAtTime(.0005,t+d*k); o.connect(g); g.connect(sfx); o.start(t); o.stop(t+d*k+.1); o.onended=()=>g.disconnect(); }
   haloPulse=1;
 }
@@ -273,6 +299,7 @@ function connect(){
       case 'state':
         Object.assign(settings,m.settings); applySettings(); startedAt=m.startedAt;
         TRACKS = Array.isArray(m.music) ? m.music : []; if (audioOn && !music) nextTrack();
+        loadBell(typeof m.bell==='string' ? m.bell : null);
         visitors.clear(); order=[]; layout(m.cap); for (const p of m.viewers) addVisitor(p,true); updateCount(); renderMerit(); break;
       case 'settings': Object.assign(settings,m.settings); applySettings(); if (m.cap!==cap){ layout(m.cap); updateCount(); } break;
       case 'join': if (m.cap!==cap) layout(m.cap); addVisitor(m.v, m.v.demo && visitors.size>8); updateCount(); break;
@@ -329,9 +356,10 @@ function frame(now){
   ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.2+.08*Math.sin(t*1.2)+haloPulse*.5; sprite(A.halo,540,560,2.7+haloPulse*.35,.5); ctx.restore();
   ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.05+.035*Math.sin(t*9)*Math.sin(t*13.3); ctx.fillStyle='#ffb347'; ctx.fillRect(0,300,1080,800); ctx.restore();
   ctx.save(); ctx.fillStyle='#efe3cc'; for (let i=0;i<16;i++){ const a=(t*.08+i*.0625)%1; ctx.globalAlpha=.28*(1-a); ctx.beginPath(); ctx.arc(540+Math.sin(a*7+i)*20*a, 1000-a*280, 4+a*15, 0, 6.28); ctx.fill(); } ctx.restore();
-  // monks at the altar (illustration)
-  for (const tc of TEACHERS){ if (tc.master){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.35+.1*Math.sin(t*1.5); sprite(A.halo,tc.x,tc.y-120,.9,.5); ctx.restore(); }
-    sprite(A[tc.skin],tc.x,tc.y,tc.s); }
+  // the abbot at the altar (illustration)
+  { const m=MASTER, im=A.master.naturalWidth ? A.master : A.monk, h=im.naturalHeight*m.s;
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.26+.08*Math.sin(t*1.5); sprite(A.halo,m.x,m.y-h*.7,.75,.5); ctx.restore();
+    dais(m.x, m.y-4, im.naturalWidth*m.s*1.25); sprite(im,m.x,m.y-6,m.s); }
   // visitors back to front
   const bubbles=[];
   const list=[...visitors.values()].sort((a,b)=>a.y-b.y);
