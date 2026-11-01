@@ -124,7 +124,7 @@ function layout(c){
     const y = FLOOR.yTop + (FLOOR.yBot-FLOOR.yTop)*t;
     const wide = c>=144 ? 1.13 : 1;                           // big crowds spread to almost the full width, like a real assembly
     const half = (FLOOR.halfTop + (FLOOR.halfBot-FLOOR.halfTop)*t) * wide;
-    const scale = (.26 + .24*t) * (6/cols) ** .75;
+    const scale = (.26 + .24*t) * 1.12 * (6/cols) ** .4;          // crowded halls keep people large: rows overlap like a real assembly
     const gap = 2*half/(cols-1) * .93;                        // room for one name tag
     for (let k=0;k<cols;k++){
       let u = (k-(cols-1)/2)/((cols-1)/2); u = Math.sign(u)*(.14 + .86*Math.abs(u));   // open a centre aisle
@@ -137,6 +137,19 @@ function layout(c){
 }
 const visitors = new Map();  // id -> visitor
 let order = [];               // ids in seating order
+/* Thiền hành: thỉnh thoảng vài người đang ngồi (người xem thật, tên đi theo) đứng dậy, ra lối giữa, lên trước bàn thờ,
+   đi chậm qua lại một vòng rồi về chỗ. Chỉ những hình có dáng đi (nam, nữ, bà). */
+let paceNext=0;
+function startPacing(now){
+  if (now<paceNext) return; paceNext=now+6000+Math.random()*6000;
+  const all=[...visitors.values()], limit = cap>=100 ? 4 : cap>=36 ? 2 : 1;
+  if (all.length<6 || all.filter(v=>v.state==='pace'||v.state==='standup').length>=limit) return;
+  const pool=all.filter(v=>v.state==='sit' && v.seat && hasAnim(v.skin) && !v.glow);
+  const v=pool[Math.floor(Math.random()*pool.length)]; if (!v) return;
+  const lane=FLOOR.yTop-14, side=Math.random()<.5?-1:1, far=300+Math.random()*90;
+  v.path=[{x:540,y:v.y},{x:540,y:lane},{x:540+side*far,y:lane},{x:540-side*far,y:lane},{x:540,y:lane}];
+  v.state='standup'; v.sitT=0;
+}
 function reseat(){
   order = order.filter(id => visitors.has(id));
   order.forEach((id,i) => { const v = visitors.get(id), s = seats[i]; if (!v || !s) return; v.seat = s; if (v.state==='sit') { v.tx = s.x; v.ty = s.y; } });
@@ -421,6 +434,7 @@ function frame(now){
     ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.26+.08*Math.sin(t*1.5); sprite(A.halo,m.x,m.y-h*.7,.75,.5); ctx.restore();
     dais(m.x, m.y-4, im.naturalWidth*m.s*1.25); sprite(im,m.x,m.y-6,m.s); }
   // visitors back to front
+  startPacing(now);
   const bubbles=[];
   const list=[...visitors.values()].sort((a,b)=>a.y-b.y);
   for (const v of list){
@@ -431,9 +445,16 @@ function frame(now){
       v.ft+=dt; if (v.ft>.15){ v.ft=0; v.frame=(v.frame+1)%4; }
       if (Math.abs(v.x-v.seat.x)<2 && Math.abs(v.y-v.seat.y)<3){ v.x=v.seat.x; v.y=v.seat.y; v.state='sitting'; v.sitT=0; v.flip=false; }
     } else if (v.state==='sitting'){ v.sitT+=dt; v.frame=4+Math.min(3,Math.floor(v.sitT/.22)); if (v.sitT>.9){ v.state='sit'; v.frame=7; } }
+    else if (v.state==='standup'){ v.sitT+=dt; v.frame=7-Math.min(3,Math.floor(v.sitT/.22)); if (v.sitT>.9){ v.state='pace'; v.frame=0; } }
+    else if (v.state==='pace'){                                   // thiền hành: đi chậm theo các điểm, xong thì đi về chỗ (trạng thái walk)
+      const p=v.path[0], dx=p.x-v.x, dy=p.y-v.y, d=Math.hypot(dx,dy), sp=62*dt;
+      if (d<=sp){ v.x=p.x; v.y=p.y; v.path.shift(); if (!v.path.length) v.state='walk'; }
+      else { v.x+=dx/d*sp; v.y+=dy/d*sp; if (Math.abs(dx)>2) v.flip=dx<0; }
+      v.ft+=dt; if (v.ft>.2){ v.ft=0; v.frame=(v.frame+1)%4; }
+    }
     else if (v.seat){ v.x+=(v.seat.x-v.x)*Math.min(1,dt*3); v.y+=(v.seat.y-v.y)*Math.min(1,dt*3); }      // glide when the grid grows
     v.fade=Math.min(1,v.fade+dt*2); v.glow=Math.max(0,v.glow-dt*.45); v.bow=Math.max(0,v.bow-dt*.7);
-    const ws = v.state==='walk' ? (.26+.26*Math.max(0,Math.min(1,(v.y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop)))) * ((6/((GRID[cap]||GRID[24])[0]))**.7) : s;
+    const ws = v.state==='walk' || v.state==='pace' ?(.26+.26*Math.max(0,Math.min(1,(v.y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop)))) * 1.12 * ((6/((GRID[cap]||GRID[24])[0]))**.4) : s;
     if (v.glow>0 || v.skin==='master'){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=Math.max(v.glow*.75, v.skin==='master'?.35+.1*Math.sin(t*1.6):0);
       const g=ctx.createRadialGradient(v.x,v.y-110*ws,8,v.x,v.y-110*ws,200*ws); g.addColorStop(0,'rgba(255,205,120,.95)'); g.addColorStop(1,'rgba(255,160,60,0)'); ctx.fillStyle=g; ctx.fillRect(v.x-230*ws,v.y-340*ws,460*ws,400*ws); ctx.restore(); }
     const breathe = v.state==='sit' ? Math.sin(t*1.1+v.phase)*2*ws : 0, bowK = v.state==='sit' ? Math.sin(Math.min(1,v.bow)*Math.PI)*.04 : 0;
@@ -443,11 +464,11 @@ function frame(now){
     else { const sk = v.skin==='master'?'monk':v.skin; sprite(A[sk]||A.man,0,breathe,ws*1.05); topY=260*ws; }
     ctx.restore();
     const ty=v.y-topY-14*ws/.4;
-    // Đông trên 64 người: chỉ hiện tên ở hàng đầu, hai cột sát lối đi giữa, người vừa bình luận và người tặng quà lớn
+    // Đông trên 64 người: chỉ hiện tên ở hai cột sát lối đi giữa, hàng đầu (khi còn đủ rộng), người vừa bình luận, người tặng quà lớn
     const sx=v.seat, cols=(GRID[cap]||GRID[24])[0];
     // ở hai cột sát lối đi, tên được lấn ra lối đi cho đủ chữ
     const inner = cap>64 && sx && v.state==='sit' ? (sx.k===cols/2-1 ? 1 : sx.k===cols/2 ? -1 : 0) : 0;
-    if (cap<=64 || !sx || v.state!=='sit' || inner || sx.r===sx.rows-1 || v.coins>=99 || v.skin==='master' || now-(v.spokeAt||-1e9)<90000)
+    if (cap<=64 || !sx || v.state!=='sit' || inner || sx.r===sx.rows-1 && cols<=10 || v.coins>=99 || v.skin==='master' || now-(v.spokeAt||-1e9)<90000)
       tag(v.name, v.x+(inner ? inner*sx.aisle*.45 : 0), ty, ws, v.skin==='master'||v.coins>=99?'gold':'', avatar(v.avatar), v.state==='sit' ? (sx?.gap||0) + (inner ? sx.aisle*.9 : 0) : 0);
     if (v.bubble && now<v.bubble.until) bubbles.push([v.bubble.text, v.x, ty-Math.max(18,30*ws/.4), ws]); else v.bubble=null;
   }
