@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
+import { tidyName } from '../lines.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 3900 + Math.floor(Math.random() * 90);
@@ -55,6 +56,10 @@ try {
   ok(await status('/live/overlay.html', { host: 'evil.example:' + PORT }) === 421, 'Host lạ bị từ chối (chống DNS rebinding)');
   const health = await (await fetch(BASE + '/health')).json();
   ok(health.ok && health.channels.length === 4, 'mặc định có 4 kênh, /health trả trạng thái');
+
+  console.log('Tên người xem');
+  ok(tidyName('𝓜𝓲𝓷𝓱 𝓣𝓪̂𝓶') === 'Minh Tâm' && tidyName('Ｍｉｎｈ') === 'Minh', 'tên kiểu chữ lạ về chữ thường');
+  ok(tidyName('Nguyễn Thị Diệu Hạnh') === 'Nguyễn Thị Diệu Hạnh' && tidyName('𒐫𒐫') === '', 'giữ nguyên tiếng Việt, bỏ chữ hình nêm');
 
   console.log('Trạng thái đẩy luồng (VPS Linux)');
   fs.mkdirSync(PUSH, { recursive: true });

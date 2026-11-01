@@ -74,7 +74,8 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
   </div>
   <div id="guide" class="card ui">
     <div>💬 <b>Bình luận bất kỳ</b> để vào thiền đường</div>
-    <div>Gõ <b>nam · nữ · sư · ni · tiểu · bà · cao tăng</b> để đổi hình</div>
+    <div>Gõ <b>nam · nữ · sư · ni · tiểu · cao tăng</b> để đổi hình</div>
+    <div>🪷 Gõ <b>lạy Phật</b> để lên đảnh lễ</div>
     <div>🙏 <b>Hồi hướng chung</b> cho tất cả mọi người</div>
   </div>
   <div id="merit" class="card ui"><h3>✦ Tri Ân ✦</h3><ol id="meritList"><li class="empty">Chưa có</li></ol></div>
@@ -137,17 +138,28 @@ function layout(c){
 }
 const visitors = new Map();  // id -> visitor
 let order = [];               // ids in seating order
-/* Lễ Phật: thỉnh thoảng một người đang ngồi (người xem thật, tên đi theo) đứng dậy, ra lối giữa, đi thẳng lên trước bàn thờ
-   (sau lưng vị trụ trì), quỳ xuống lạy ba lạy rồi về chỗ. Hai chỗ lạy hai bên lối đi. Chỉ hình có dáng đi (nam, nữ, bà). */
+/* Lễ Phật: người bình luận "lạy Phật", "thắp hương"… được đi lên trước (ưu tiên); lúc vắng thì thỉnh thoảng một người đang ngồi
+   tự đi. Người đó (tên đi theo) đứng dậy, ra lối giữa, đi thẳng lên trước bàn thờ (sau lưng vị trụ trì), quỳ lạy ba lạy rồi về chỗ.
+   Hai chỗ lạy hai bên lối đi. Chỉ hình có dáng đi (nam, nữ); sư, ni, tiểu thì vái tại chỗ. */
 let paceNext=0;
-const BOW_SPOTS=[500,580];
+const BOW_SPOTS=[500,580], bowWish=new Set();
+const BOW_WORDS=/(?<!\p{L})(lạy phật|lễ phật|bái phật|đảnh lễ|thắp hương|dâng hương|thắp nhang|lạy|vái)(?!\p{L})/u;
 function startPacing(now){
-  if (now<paceNext) return; paceNext=now+5000+Math.random()*6000;
-  const all=[...visitors.values()], busy=all.filter(v=>v.bowSpot!=null);
-  if (all.length<6 || busy.length>=Math.min(cap>=36 ? 2 : 1, BOW_SPOTS.length)) return;
-  const pool=all.filter(v=>v.state==='sit' && v.seat && hasAnim(v.skin) && !v.glow);
-  const v=pool[Math.floor(Math.random()*pool.length)]; if (!v) return;
-  const spot=BOW_SPOTS.find(x=>!busy.some(b=>b.bowSpot===x));
+  const all=[...visitors.values()], busy=all.filter(v=>v.bowSpot!=null), free=BOW_SPOTS.filter(x=>!busy.some(b=>b.bowSpot===x));
+  if (!free.length) return;
+  let v=null;
+  for (const id of bowWish){
+    const w=visitors.get(id); if (!w){ bowWish.delete(id); continue; }
+    if (!hasAnim(w.skin)){ w.bow=1; bowWish.delete(id); continue; }
+    if (w.state==='sit' && w.seat && w.bowSpot==null){ v=w; bowWish.delete(id); break; }
+  }
+  if (!v){
+    if (now<paceNext || all.length<6 || busy.length>=(cap>=36 ? 2 : 1)) return;
+    paceNext=now+5000+Math.random()*6000;
+    const pool=all.filter(w=>w.state==='sit' && w.seat && hasAnim(w.skin) && !w.glow);
+    v=pool[Math.floor(Math.random()*pool.length)]; if (!v) return;
+  }
+  const spot=free[0];
   v.bowSpot=spot; v.path=[{x:540,y:v.y},{x:540,y:FLOOR.yTop+30},{x:spot,y:FLOOR.yTop+18}];
   v.state='standup'; v.next='pace'; v.sitT=0;
 }
@@ -328,7 +340,8 @@ function connect(){
       case 'join': if (m.cap!==cap) layout(m.cap); addVisitor(m.v, m.v.demo && visitors.size>8); updateCount(); break;
       case 'leave': removeVisitor(m.id); updateCount(); renderMerit(); break;
       case 'skin': { const v=visitors.get(m.id); if(v){ v.skin=m.skin; v.glow=.8; if(v.state!=='sit'){ v.state='sit'; v.frame=7; } } } break;
-      case 'chat': { const v=visitors.get(m.id); if(v){ v.bubble={text:m.text, until:performance.now()+6000}; v.bow=.6; v.spokeAt=performance.now(); } } break;
+      case 'chat': { const v=visitors.get(m.id); if(v){ v.bubble={text:m.text, until:performance.now()+6000}; v.bow=.6; v.spokeAt=performance.now();
+          if (BOW_WORDS.test(String(m.text).toLowerCase().normalize('NFC'))) bowWish.add(v.id); } } break;
       case 'gift': { const v=visitors.get(m.id); if(v){ v.coins=m.total; giftFx(v,m.tier); } renderMerit(); showGift(m); } break;
       case 'like': { const v=visitors.get(m.id); if(v) hearts(v,m.n); } break;
       case 'tts': queueTTS(m); break;
@@ -422,7 +435,9 @@ function bubble(text,x,y,s){
 }
 let last=performance.now();
 function frame(now){
-  requestAnimationFrame(frame); const dt=Math.min((now-last)/1000,.05); last=now; const t=now/1000;
+  requestAnimationFrame(frame);
+  if (now-last < 1000/31) return;       // vẽ 30 khung/giây là đủ (OBS, ffmpeg lấy 30): đỡ gần nửa CPU trên VPS không có card đồ họa
+  const dt=Math.min((now-last)/1000,.05); last=now; const t=now/1000;
   ctx.clearRect(0,0,1080,1920);
   drawHall(dt);
   // light: halo around the statue, candle flicker, incense smoke

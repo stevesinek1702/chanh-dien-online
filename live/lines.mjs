@@ -132,10 +132,20 @@ export const MINDFUL = [
 export const INVITE = [
   'Bạn mới đến? Hãy để lại một dòng bình luận để cùng an tọa với mọi người trong thiền đường.',
   'Xin quý vị giữ lời lẽ hòa nhã, cùng nhau giữ cho thiền đường thanh tịnh.',
-  'Bình luận một chữ nam, nữ, sư, ni, tiểu, bà hay cao tăng để đổi y phục cho mình trong thiền đường.',
+  'Bình luận một chữ nam, nữ, sư, ni, tiểu hay cao tăng để đổi y phục cho mình trong thiền đường.',
+  'Muốn lên trước bàn thờ đảnh lễ, bạn bình luận lạy Phật, hoặc thắp hương.',
 ];
 
 /* ---------------------------------------------------------------- tools */
+// Tên kiểu chữ lạ (𝓜𝓲𝓷𝓱, 𝐓𝐚̂𝐦, Ｍｉｎｈ) về chữ thường; bỏ ký tự vô hình, đảo chiều chữ, dấu chồng nhiều tầng (zalgo)
+// và chữ hình nêm (𒐫) làm giật hình. Lọc xong mà rỗng thì trả chuỗi rỗng.
+export function tidyName(s){
+  return String(s ?? '').normalize('NFKC')
+    .replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁯﻿]/g, '')
+    .replace(/[\u{12000}-\u{1254f}]/gu, '')
+    .replace(/(\p{M}{2})\p{M}+/gu, '$1')
+    .normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, 40);
+}
 export function joinNames(names){
   if (names.length <= 1) return names[0] || '';
   return `${names.slice(0, -1).join(', ')} và ${names.at(-1)}`;

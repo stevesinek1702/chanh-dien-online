@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
-import { THANK, WELCOME, FOLLOW, SHARE, PRAYER_GROUP, MINDFUL, INVITE, joinNames, fill, picker, prayerTopic } from './lines.mjs';
+import { THANK, WELCOME, FOLLOW, SHARE, PRAYER_GROUP, MINDFUL, INVITE, joinNames, fill, picker, prayerTopic, tidyName } from './lines.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');            // repo root: serves /assets, /live
@@ -130,11 +130,11 @@ const CHANTS = [
   { title: 'Hồi Hướng', text: 'Nam mô Bổn Sư Thích Ca Mâu Ni Phật. Nguyện đem công đức này, hướng về khắp tất cả, đệ tử và chúng sanh, đều trọn thành Phật đạo.', dedicate: true },
 ];
 
-/* skins: sprites that exist in /assets. Walking strips exist for man / woman / granny. */
+/* skins: sprites that exist in /assets. Walking strips exist for man / woman. Người chơi TikTok đa số còn trẻ: không dùng hình bà cụ. */
 // A comment changes the outfit only when it IS the keyword (≤ 3 words), so "Nam mô A Di Đà Phật" never reads as "nam".
 const SKIN_WORDS = [
   ['master', ['cao tăng','cao tang']], ['monk', ['sư','su','sư thầy','su thay','thầy','thay']], ['nun', ['ni','ni cô','ni co','sư cô','su co']],
-  ['child', ['tiểu','tieu','chú tiểu','chu tieu','bé','be']], ['granny', ['bà','ba','áo nâu','ao nau','cụ','cu']],
+  ['child', ['tiểu','tieu','chú tiểu','chu tieu','bé','be']],
   ['woman', ['nữ','nu','chị','chi','gái','gai']], ['man', ['nam','anh','trai']],
 ];
 function skinFromText(t){
@@ -143,11 +143,11 @@ function skinFromText(t){
   for (const [skin, words] of SKIN_WORDS) if (words.some(k => w === k || w.startsWith(k + ' '))) return skin;
   return null;
 }
-const DEFAULT_SKINS = ['man', 'woman', 'woman', 'man', 'granny'];
+const DEFAULT_SKINS = ['man', 'woman', 'woman', 'man'];
 const CAPS = [24, 36, 64, 100, 144, 200];
 const MAX_SEATS = CAPS.at(-1);
 const DEMO_NAMES = ['Diệu Hạnh','Minh Tâm','Thiện Đức','Huệ An','Tịnh Nhã','Quảng Trí','Chơn Như','Pháp Hỷ','Nguyên Thanh','Tâm Đăng','Diệu Liên','Trí Hải','Phước Lộc','Hạnh Nguyện','Như Ý','Bảo Châu','Thanh Lương','Từ Tâm','An Lạc','Giác Hoa','Tuệ Minh','Liên Hương','Thu Hà','Ngọc Lan','Đức Anh','Hải Đăng','Mai Anh','Phương Thảo','Trung Kiên','Quang Huy','Bảo Ngọc','Diệu Linh'];
-const BOT_LINES = ['Nam mô A Di Đà Phật', 'Nam mô Bổn Sư Thích Ca Mâu Ni Phật', 'Cầu cho gia đình bình an', 'Con xin thành tâm sám hối', 'nữ', 'nam', 'bà',
+const BOT_LINES = ['Nam mô A Di Đà Phật', 'Nam mô Bổn Sư Thích Ca Mâu Ni Phật', 'Cầu cho gia đình bình an', 'Con xin thành tâm sám hối', 'nữ', 'nam', 'Con xin lạy Phật',
   'Nguyện cầu cha mẹ mạnh khỏe', 'Mô Phật, an lạc quá', 'Chúc mọi người một ngày bình an', 'sư', 'Cầu công việc hanh thông',
   'Cầu cho mẹ con mau khỏi bệnh', 'Mai con đi thi, xin cầu cho con bình tĩnh', 'Cầu siêu cho ông nội con mới mất', 'Nghe chuông thấy nhẹ lòng ghê', 'ni', 'tiểu'];
 
@@ -174,7 +174,7 @@ function throttledConnect(fn){
 }
 // tiktok-live-connector 2.5 (proto v3) names the username `displayId`; older versions used `uniqueId`
 const uidOf = u => String(u?.displayId || u?.uniqueId || u?.id || u?.userId || '');
-const nm = u => u?.nickname || u?.displayId || u?.uniqueId || 'Khách';
+const nm = u => tidyName(u?.nickname || u?.displayId || u?.uniqueId) || 'Khách';
 const av = u => u?.avatarThumb?.urlList?.[0] || u?.profilePicture?.urlList?.[0] || u?.profilePicture?.url?.[0] || u?.avatarThumb?.url?.[0] || '';
 
 /* -------------------------------------------------------------- channel */
@@ -250,7 +250,7 @@ class Channel {
       if (!quiet) return { v: null, isNew: false };
       this.viewers.delete(quiet.id); this.broadcast({ t: 'leave', id: quiet.id });
     }
-    const shown = isClean(name) ? String(name || id) : 'Khách';
+    const tidy = tidyName(name) || String(id), shown = isClean(tidy) ? tidy : 'Khách';
     v = { id, name: shown.slice(0, 18), skin: opts.skin || DEFAULT_SKINS[this.viewers.size % DEFAULT_SKINS.length],
           avatar: opts.avatar || '', coins: 0, joinedAt: now(), lastAt: now(), demo: !!opts.demo };
     this.viewers.set(id, v);
@@ -498,7 +498,7 @@ class Channel {
     const have = [...this.viewers.values()].filter(v => v.demo).length;
     for (let i = have; i < n && this.viewers.size < MAX_SEATS; i++){
       const name = DEMO_NAMES[i % DEMO_NAMES.length] + (i >= DEMO_NAMES.length ? ' ' + (Math.floor(i / DEMO_NAMES.length) + 1) : '');
-      this.seat('demo_' + i, name, { demo: true, skin: ['man','woman','woman','man','granny','monk','nun','child'][i % 8] });
+      this.seat('demo_' + i, name, { demo: true, skin: ['man','woman','woman','man','woman','man','monk','nun'][i % 8] });
     }
   }
   setBots(on, n, pace){
