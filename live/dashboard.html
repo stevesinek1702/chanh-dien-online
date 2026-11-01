@@ -32,6 +32,8 @@ h1{font-family:var(--display);font-size:24px;margin:0;color:var(--gold)}
 .stat{background:#0f0805;border:1px solid var(--line);border-radius:10px;padding:6px 8px;min-width:0}
 .stat b{display:block;font-size:17px;font-variant-numeric:tabular-nums}
 .stat span{font-size:11px;color:var(--muted)}
+.push{font-size:12px;border:1px solid var(--line);border-radius:9px;padding:6px 9px;background:#0f0805;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.push.ok{border-color:var(--green);color:#9fe0b4}.push.bad{border-color:#a33;color:#f3a3a3}.push.wait{border-color:#8a6a2a;color:#f0d08a}
 .alert{font-size:12px;color:#f0d08a;border:1px solid #6b5420;border-radius:9px;padding:6px 9px;background:#2a2008}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>input{flex:1 1 140px}
 input{font:inherit;color:var(--fg);background:#0f0805;border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-width:0}
@@ -66,6 +68,7 @@ code{background:#0f0805;border:1px solid var(--line);border-radius:6px;padding:1
 <section class="guide">
   <b>Cách dùng nhanh:</b> nhập username TikTok cho từng kênh rồi bấm Kết nối (trước hay sau khi lên LIVE đều được, server tự chờ và tự nối lại khi rớt).
   Mỗi kênh cần một nguồn phát riêng: trong OBS, mỗi tài khoản một cửa sổ OBS (<code>obs64.exe --multi</code>) với Browser source trỏ đúng địa chỉ overlay của kênh đó, tích “Control audio via OBS”, khóa phát (stream key) của đúng tài khoản.
+  Trên VPS Linux không cần OBS: mỗi kênh là một dịch vụ <code>chanh-dien-kenh@…</code>, dòng “Đẩy luồng” trên thẻ cho biết luồng có đang lên TikTok không.
   Xem chi tiết trong <code>docs/HUONG-DAN-DA-KENH.md</code>.
 </section>
 
@@ -94,11 +97,13 @@ function card(c){
     k.off = el('button', { onclick:() => send('disconnect', { ch:c.id }) }, 'Ngắt');
     k.s = {}; const stat = (key, label) => { k.s[key] = el('b'); return el('div', { class:'stat' }, k.s[key], el('span', {}, label)); };
     k.alert = el('div', { class:'alert' });
+    k.push = el('div', { class:'push' });
     k.root = el('section', { class:'card' },
       el('div', { class:'top' }, k.name, k.chip),
       el('div', { class:'id' }, c.id),
       el('div', { class:'row' }, k.user, k.on, k.off),
       k.text,
+      k.push,
       el('div', { class:'stats' }, stat('viewers','người xem TikTok'), stat('seated','đang ngồi'), stat('comments','bình luận'),
         stat('gifts','quà · xu'), stat('likes','lượt tim'), stat('up','đã nối được')),
       k.alert,
@@ -124,6 +129,7 @@ function card(c){
   k.s.gifts.textContent = `${num(c.stats.gifts)} · ${num(c.stats.coins)}`;
   k.s.likes.textContent = num(c.stats.likes);
   k.s.up.textContent = c.connectedAt ? dur(state.now - c.connectedAt) : '—';
+  pushLine(k.push, c);
   const alerts = [];
   if (!c.overlays) alerts.push('Chưa mở overlay nào: kênh này chưa có hình và tiếng để phát.');
   else if (!c.audio) alerts.push(`Có ${c.overlays} overlay nhưng chưa bật âm thanh (bấm nút trong cửa sổ overlay, hoặc dùng OBS).`);
@@ -131,6 +137,27 @@ function card(c){
   if (c.bots) alerts.push('Bot mô phỏng đang bật.');
   k.alert.textContent = alerts.join(' '); k.alert.hidden = !alerts.length;
   return k.root;
+}
+// Dòng "Đẩy luồng": chỉ có khi kênh phát bằng deploy/linux/phat-kenh.sh (VPS Linux). Phát bằng OBS thì không hiện.
+function pushLine(box, c){
+  const p = c.push; box.hidden = !p; if (!p) return;
+  const ago = state.now - (p.at || 0), left = t => Math.max(0, Math.round(((t || 0) - state.now) / 1000));
+  let cls = 'wait', txt;
+  if (ago > 30000 && p.state !== 'stopped') { cls = 'bad'; txt = `Đẩy luồng: script phát im lặng ${dur(ago)}. Xem: journalctl -u chanh-dien-kenh@${c.id}`; }
+  else switch (p.state){
+    case 'live':
+      cls = p.speed != null && p.speed < 0.95 ? 'bad' : 'ok';
+      txt = `Đẩy luồng: đang phát ${p.size} · ${p.fps ?? '—'} fps · ${p.kbps != null ? Math.round(p.kbps) : '—'} kbps · tốc độ ${p.speed ?? '—'}x · ${p.since ? dur(state.now - p.since) : '—'}`;
+      if (cls === 'bad') txt += '. CPU không kịp mã hóa, hình sẽ giật: hạ FPS, đổi X264_PRESET=superfast hoặc bớt kênh.';
+      break;
+    case 'connecting': txt = `Đẩy luồng: đang nối tới ${p.host || 'máy chủ RTMP'}…`; break;
+    case 'retry': cls = 'bad'; txt = `Đẩy luồng: rớt (mã ${p.code ?? '?'}), phát lại sau ${left(p.retryAt)}s`; break;
+    case 'nokey': txt = `Đẩy luồng: chưa có khóa phát. Điền RTMP_URL và STREAM_KEY trong /etc/chanh-dien/${c.id}.env`; break;
+    case 'stopped': cls = ''; txt = 'Đẩy luồng: đã dừng'; break;
+    default: txt = 'Đẩy luồng: đang dựng màn hình ảo và mở Chrome…';
+  }
+  if (p.restarts) txt += ` · đã nối lại ${p.restarts} lần`;
+  box.className = 'push ' + cls; box.textContent = txt;
 }
 function render(){
   const grid = $('grid'), ids = new Set(state.channels.map(c => c.id));

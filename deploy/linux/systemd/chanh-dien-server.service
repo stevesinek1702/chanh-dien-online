@@ -13,6 +13,8 @@ Environment=DATA_DIR=/var/lib/chanh-dien/data
 # Chỉ nghe 127.0.0.1: không mở cổng 3000 ra Internet. Vào bảng tổng qua đường hầm SSH.
 Environment=HOST=127.0.0.1
 Environment=PORT=3000
+# phat-kenh.sh ghi trạng thái đẩy luồng vào đây; bảng tổng hiện thành dòng "Đẩy luồng" trên mỗi thẻ kênh
+Environment=PUSH_STATUS_DIR=/var/lib/chanh-dien/phat
 # SIGN_API_KEY=… (khóa Euler Stream) đặt trong file này
 EnvironmentFile=-/etc/chanh-dien/server.env
 ExecStart=/usr/bin/env node server.mjs

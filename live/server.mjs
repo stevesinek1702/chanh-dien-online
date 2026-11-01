@@ -21,6 +21,7 @@ const LOG_DIR = path.join(DATA_DIR, 'logs');
 const BLOCKLIST_FILE = path.join(__dirname, 'blocklist.txt');
 const PORT = +process.env.PORT || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
+const PUSH_DIR = process.env.PUSH_STATUS_DIR ? path.resolve(process.env.PUSH_STATUS_DIR) : null;   // VPS Linux: deploy/linux/phat-kenh.sh ghi vào đây
 const MAX_CHANNELS = 8;
 
 const WAIT_POLL_MS = 90_000;         // chưa LIVE: hỏi lại sau 90 giây (hỏi thẳng TikTok, không tốn lượt ký Euler)
@@ -229,7 +230,7 @@ class Channel {
     return { id: this.id, name: this.name, uniqueId: this.uniqueId, want: this.want, status: this.tt.status, text: this.tt.text,
       seated: this.viewers.size, stats: this.stats, overlays: ov.length, audio: ov.filter(c => c.audio).length,
       connectedAt: this.connectedAt, lastEventAgo: this.conn ? now() - this.lastEventAt : null, nextRetryAt: this.nextRetryAt,
-      bots: !!this.botTimer, title: this.settings.title };
+      bots: !!this.botTimer, title: this.settings.title, push: pushStatus(this.id) };
   }
   setStatus(status, text){
     this.tt = { status, text, uniqueId: this.uniqueId };
@@ -555,6 +556,19 @@ class Channel {
 }
 function esc(s){ return String(s).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c])); }
 
+// Trạng thái đẩy luồng RTMP do deploy/linux/phat-kenh.sh ghi mỗi 5 giây vào <PUSH_STATUS_DIR>/<mã kênh>.json.
+// Chỉ có trên VPS Linux; Windows dùng OBS nên không có file và bảng tổng không hiện dòng này. File chỉ được đọc, coi như dữ liệu.
+const PUSH_STATES = new Set(['starting', 'connecting', 'live', 'retry', 'nokey', 'stopped']);
+function pushStatus(chId){
+  if (!PUSH_DIR) return null;
+  let s; try { s = JSON.parse(fs.readFileSync(path.join(PUSH_DIR, chId + '.json'), 'utf8')); } catch { return null; }
+  if (!s || typeof s !== 'object') return null;
+  const n = v => v == null || v === '' || !Number.isFinite(+v) ? null : +v, ms = v => n(v) == null ? null : n(v) * 1000;
+  return { state: PUSH_STATES.has(s.state) ? s.state : 'starting', at: ms(s.at), since: ms(s.since), retryAt: ms(s.retryAt),
+    code: n(s.code), restarts: n(s.restarts), fps: n(s.fps), kbps: n(s.kbps), speed: n(s.speed),
+    host: String(s.host ?? '').slice(0, 80), size: String(s.size ?? '').slice(0, 12) };
+}
+
 // Nhạc: mọi file .mp3 trong assets/music. Kênh nào có thư mục riêng assets/music/<mã kênh>/ thì dùng nhạc riêng,
 // để các kênh không phát y hệt nhau.
 function musicList(chId){
@@ -654,7 +668,7 @@ const server = http.createServer((req, res) => {
     const mem = process.memoryUsage();
     sendJSON(res, { ok: true, uptimeSec: Math.round((now() - serverStartedAt) / 1000), rssMB: Math.round(mem.rss / 1048576), heapMB: Math.round(mem.heapUsed / 1048576),
       clients: wss.clients.size, channels: [...channels.values()].map(c => { const ov = c.overlayClients();
-        return { id: c.id, status: c.tt.status, seated: c.viewers.size, overlays: ov.length, audio: ov.filter(w => w.audio).length, tts: c.ttsQueue.length }; }) });
+        return { id: c.id, status: c.tt.status, seated: c.viewers.size, overlays: ov.length, audio: ov.filter(w => w.audio).length, tts: c.ttsQueue.length, push: pushStatus(c.id) }; }) });
     return;
   }
   const tts = p.startsWith('/tts/');

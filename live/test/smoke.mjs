@@ -13,13 +13,14 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 3900 + Math.floor(Math.random() * 90);
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'chanhdien-test-'));
 const BASE = `http://127.0.0.1:${PORT}`;
+const PUSH = path.join(DATA, 'phat');
 let server, failed = 0, warned = 0;
 const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); if (!cond) failed++; };
 const warn = msg => { console.log(`  ! ${msg}`); warned++; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function start(){
-  server = spawn(process.execPath, [path.join(here, '..', 'server.mjs')], { env: { ...process.env, PORT: String(PORT), DATA_DIR: DATA }, stdio: ['ignore', 'pipe', 'pipe'] });
+  server = spawn(process.execPath, [path.join(here, '..', 'server.mjs')], { env: { ...process.env, PORT: String(PORT), DATA_DIR: DATA, PUSH_STATUS_DIR: PUSH }, stdio: ['ignore', 'pipe', 'pipe'] });
   return new Promise((res, rej) => {
     const t = setTimeout(() => rej(new Error('server không khởi động')), 15000);
     server.stdout.on('data', d => { if (String(d).includes('Server chạy')) { clearTimeout(t); res(); } });
@@ -54,6 +55,17 @@ try {
   ok(await status('/live/overlay.html', { host: 'evil.example:' + PORT }) === 421, 'Host lạ bị từ chối (chống DNS rebinding)');
   const health = await (await fetch(BASE + '/health')).json();
   ok(health.ok && health.channels.length === 4, 'mặc định có 4 kênh, /health trả trạng thái');
+
+  console.log('Trạng thái đẩy luồng (VPS Linux)');
+  fs.mkdirSync(PUSH, { recursive: true });
+  const t = Math.floor(Date.now() / 1000);
+  fs.writeFileSync(path.join(PUSH, 'kenh1.json'), JSON.stringify({ at: t, state: 'live', since: t - 60, restarts: 2, fps: 29.9, kbps: 3120.5, speed: 1, host: 'push.example', size: '720x1280' }));
+  fs.writeFileSync(path.join(PUSH, 'kenh2.json'), JSON.stringify({ at: 'x', state: '<img src=x>', fps: 'abc', host: 'h'.repeat(500) }));
+  fs.writeFileSync(path.join(PUSH, 'kenh3.json'), '{hỏng');
+  const hp = Object.fromEntries((await (await fetch(BASE + '/health')).json()).channels.map(c => [c.id, c.push]));
+  ok(hp.kenh1?.state === 'live' && hp.kenh1.fps === 29.9 && hp.kenh1.since === (t - 60) * 1000 && hp.kenh1.restarts === 2, 'đọc được trạng thái phát của kênh 1');
+  ok(hp.kenh2?.state === 'starting' && hp.kenh2.fps === null && hp.kenh2.at === null && hp.kenh2.host.length === 80, 'giá trị lạ trong file bị lọc');
+  ok(hp.kenh3 === null && hp.kenh4 === null, 'file hỏng hoặc không có file: không có dòng đẩy luồng');
 
   console.log('WebSocket · nguồn gốc và vai trò');
   const evil = client('control', 'kenh1', 'https://evil.example');

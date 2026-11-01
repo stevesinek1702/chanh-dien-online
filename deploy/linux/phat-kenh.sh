@@ -37,11 +37,29 @@ XW=${WIDTH:-720} XH=${HEIGHT:-1280}                       # kích thước màn 
 CHROME=${CHROME:-$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser)}
 [[ -x $CHROME ]] || { log "Không tìm thấy Google Chrome. Chạy lại deploy/linux/cai-dat.sh."; exit 1; }
 
+# Trạng thái đẩy luồng cho bảng tổng: server đọc file này (PUSH_STATUS_DIR). Không ghi khóa phát vào đây.
+PUSH_FILE=$STATE/phat/$CH.json
+mkdir -p "$STATE/phat"
+ff_since='' ff_retry_at='' ff_rc='' restarts=0
+jnum(){ [[ ${1:-} =~ ^[0-9]+(\.[0-9]+)?$ ]] && echo "$1" || echo null; }
+push_status(){                                            # starting | connecting (thành live khi ffmpeg báo tiến trình) | retry | nokey | stopped
+  local st=$1 now t=0 fps='' kbps='' speed='' host
+  printf -v now '%(%s)T' -1
+  if [[ $st == connecting ]] && read -r t fps kbps speed 2>/dev/null < "$RUN/ff.progress" && (( t >= ff_since && now - t < 20 )); then st=live; fi
+  [[ $st == live ]] || fps='' kbps='' speed=''
+  host=${RTMP_URL#*://}; host=${host%%/*}; host=${host//[^A-Za-z0-9.:-]/}
+  printf '{"at":%s,"state":"%s","since":%s,"retryAt":%s,"code":%s,"restarts":%s,"fps":%s,"kbps":%s,"speed":%s,"host":"%s","size":"%sx%s"}\n' \
+    "$now" "$st" "$(jnum "$ff_since")" "$(jnum "$ff_retry_at")" "$(jnum "$ff_rc")" "$restarts" \
+    "$(jnum "$fps")" "$(jnum "$kbps")" "$(jnum "$speed")" "${host:0:80}" "$XW" "$XH" > "$PUSH_FILE.tmp" && mv -f "$PUSH_FILE.tmp" "$PUSH_FILE"
+}
+push_status starting
+
 XVFB='' PULSE='' CHROME_PID='' FF=''
 cleanup(){
   trap - EXIT
   for p in "$FF" "$CHROME_PID" "$PULSE" "$XVFB"; do alive "$p" && kill "$p" 2>/dev/null; done
   wait 2>/dev/null
+  push_status stopped
 }
 trap cleanup EXIT
 trap 'exit 0' TERM INT
@@ -75,7 +93,7 @@ health(){                                                 # in "<số overlay> <
 }
 i=0
 until [[ $(health) != down ]]; do
-  (( i++ % 6 == 0 )) && log "Chờ server ở cổng $PORT…"; sleep 5
+  (( i++ % 6 == 0 )) && log "Chờ server ở cổng $PORT…"; push_status starting; sleep 5
 done
 
 CHROME_LOG=$STATE/chrome-$CH.log
@@ -99,22 +117,35 @@ log "Màn hình :$DISP ${XW}x${XH}, sink $SINK, Chrome đã mở overlay."
 
 # ---------------------------------------------------------------- ffmpeg → RTMP
 mask(){ local k=$1; (( ${#k} > 8 )) && echo "${k:0:4}…(${#k} ký tự)" || echo "(${#k} ký tự)"; }
+ff_progress(){                                            # đọc -progress của ffmpeg, giữ khối mới nhất: "<giờ> <fps> <kbps> <tốc độ>"
+  local k v fps='' br='' sp='' now
+  while IFS='=' read -r k v; do
+    v=${v// /}
+    case $k in
+      fps) fps=$v ;; bitrate) br=${v%kbits/s} ;; speed) sp=${v%x} ;;
+      progress) printf -v now '%(%s)T' -1
+        printf '%s %s %s %s\n' "$now" "${fps:-0}" "${br:-0}" "${sp:-0}" > "$RUN/ff.progress.tmp" && mv -f "$RUN/ff.progress.tmp" "$RUN/ff.progress" ;;
+    esac
+  done
+}
 start_ffmpeg(){
   local fps=${FPS:-30} vk=${VIDEO_KBPS:-3000}
   local g=$((fps * 2))                                    # khung khóa mỗi 2 giây
-  ffmpeg -hide_banner -nostdin -nostats -loglevel error \
+  rm -f "$RUN/ff.progress"
+  ffmpeg -hide_banner -nostdin -nostats -loglevel error -stats_period 5 -progress pipe:1 \
     -thread_queue_size 512 -f x11grab -draw_mouse 0 -framerate "$fps" -video_size "${XW}x${XH}" -i ":$DISP" \
     -thread_queue_size 512 -f pulse -ac 2 -ar 44100 -i "$SINK.monitor" \
     -map 0:v -map 1:a \
     -c:v libx264 -preset "${X264_PRESET:-veryfast}" -profile:v high -pix_fmt yuv420p -r "$fps" \
     -b:v "${vk}k" -maxrate "${vk}k" -bufsize "$((vk * 2))k" -g "$g" -keyint_min "$g" -sc_threshold 0 \
     -c:a aac -b:a "${AUDIO_KBPS:-128}k" -ar 44100 -ac 2 \
-    -f flv "${RTMP_URL%/}/$STREAM_KEY" &
+    -f flv "${RTMP_URL%/}/$STREAM_KEY" > >(ff_progress) &
   FF=$!
+  printf -v ff_since '%(%s)T' -1; ff_retry_at=''
   log "Bắt đầu phát tới ${RTMP_URL%/}/$(mask "$STREAM_KEY") · ${XW}x${XH} ${fps}fps ${vk}k"
 }
 
-ff_fails=0 ff_next=0 ff_started=0
+ff_fails=0 ff_next=0 ff_started=0 nokey=0
 bad=0 wd_next=$((SECONDS + 90)) wd_wait=60 note_next=0
 while :; do
   alive "$XVFB"  || { log "Xvfb đã chết, dựng lại cả kênh."; exit 1; }
@@ -126,14 +157,15 @@ while :; do
     (( SECONDS - ff_started > 120 )) && ff_fails=0
     delay=$(( 5 << (ff_fails < 5 ? ff_fails : 5) )); (( delay > 120 )) && delay=120
     ff_fails=$((ff_fails + 1)); ff_next=$((SECONDS + delay))
+    restarts=$((restarts + 1)) ff_rc=$rc; printf -v ff_retry_at '%(%s)T' -1; ff_retry_at=$((ff_retry_at + delay))
     log "ffmpeg dừng (mã $rc). Phát lại sau ${delay} giây."
   fi
   if [[ -z $FF ]] && (( SECONDS >= ff_next )); then
     if load_conf && [[ -n $RTMP_URL && -n $STREAM_KEY && $RTMP_URL$STREAM_KEY != *vao_day* ]]; then
-      start_ffmpeg; ff_started=$SECONDS
+      start_ffmpeg; ff_started=$SECONDS nokey=0
     else
-      log "Chưa có RTMP_URL / STREAM_KEY trong $CONF. Thử lại sau 60 giây (hình và tiếng vẫn chạy, xem bằng kiem-tra.sh)."
-      ff_next=$((SECONDS + 60))
+      (( nokey )) || log "Chưa có RTMP_URL / STREAM_KEY trong $CONF. Cứ 60 giây đọc lại (hình và tiếng vẫn chạy, xem bằng kiem-tra.sh)."
+      ff_next=$((SECONDS + 60)) nokey=1
     fi
   fi
 
@@ -154,5 +186,6 @@ while :; do
     esac
     [[ -f $CHROME_LOG ]] && (( $(stat -c %s "$CHROME_LOG") > 20971520 )) && : > "$CHROME_LOG"
   fi
+  if [[ -n $FF ]]; then push_status connecting; elif (( nokey )); then push_status nokey; else push_status retry; fi
   sleep 5
 done

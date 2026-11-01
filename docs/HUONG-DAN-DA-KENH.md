@@ -119,6 +119,13 @@ ssh -L 3000:127.0.0.1:3000 <user>@<IP VPS>
 
 Giữ cửa sổ SSH đó, rồi mở `http://localhost:3000/` trên máy mình. Cổng bên máy bạn phải đúng là `3000`, vì server chỉ nhận đúng tên `localhost:3000`. Nếu máy nhà đang chạy `Chay-Live.cmd` thì tắt trước.
 
+Trên VPS Linux, mỗi thẻ kênh có thêm dòng **Đẩy luồng** cho biết luồng có đang lên TikTok không:
+
+- **Xanh** `đang phát 720x1280 · 30 fps · 3120 kbps · tốc độ 1x · 2g 15p`: đang phát bình thường.
+- **Đỏ**: rớt và đang chờ phát lại (kèm mã lỗi, số giây còn lại). Cũng đỏ khi tốc độ mã hóa dưới 0,95x, tức CPU không kịp và hình sẽ giật. Cũng đỏ khi script phát im lặng quá 30 giây.
+- **Vàng**: đang nối tới máy chủ RTMP, hoặc chưa điền khóa phát.
+- Số "đã nối lại N lần" đếm từ lần khởi động kênh gần nhất. Số này tăng đều thì xem nhật ký của kênh.
+
 **Kiểm tra hình và tiếng** (không cần màn hình):
 
 ```bash
@@ -135,7 +142,7 @@ Lệnh in trạng thái dịch vụ, số overlay đang mở và có tiếng. N�
 |---|---|
 | Xem nhật ký một kênh | `journalctl -u chanh-dien-kenh@kenh1 -f` |
 | Xem nhật ký server | `journalctl -u chanh-dien-server -f` (thêm nhật ký theo ngày ở `/var/lib/chanh-dien/data/logs/`) |
-| Trạng thái tất cả | `systemctl status 'chanh-dien-*'` và `curl -s http://127.0.0.1:3000/health` |
+| Trạng thái tất cả | Bảng tổng, hoặc `systemctl status 'chanh-dien-*'` và `curl -s http://127.0.0.1:3000/health` (có cả trạng thái đẩy luồng) |
 | Đổi stream key | sửa `/etc/chanh-dien/kenh1.env`. Lần nối lại kế tiếp tự dùng khóa mới; muốn ngay: `sudo systemctl restart chanh-dien-kenh@kenh1` |
 | Tạm dừng một kênh | `sudo systemctl stop chanh-dien-kenh@kenh1` (thêm `disable` để khởi động lại máy cũng không chạy) |
 | Cập nhật code | `cd /opt/chanh-dien-online && sudo git pull && sudo bash deploy/linux/cai-dat.sh kenh1 kenh2 …` |
@@ -169,7 +176,7 @@ Mỗi kênh tốn CPU cho hai việc: Chrome vẽ overlay bằng CPU (không có
 
 **Tình trạng kiểm thử phần Linux**
 
-- Đã kiểm trên máy phát triển: dùng đúng bộ tham số ffmpeg của script, đẩy RTMP tới một server RTMP cục bộ (`ffmpeg -listen 1`). Luồng nhận được là H.264 High 720×1280 30fps + AAC 44,1 kHz stereo, khoảng 3,2 Mbps, khung khóa đúng mỗi 2 giây; khóa kiểu TikTok có `?…&…` đi qua nguyên vẹn. Chrome bật cờ autoplay mở overlay thì server báo "1 overlay, 1 có tiếng" (đúng cái bộ canh overlay đọc). Phần đo hình và tiếng của `kiem-tra.sh` phân biệt được có tiếng và im lặng.
+- Đã kiểm trên máy phát triển: dùng đúng bộ tham số ffmpeg của script, đẩy RTMP tới một server RTMP cục bộ (`ffmpeg -listen 1`). Luồng nhận được là H.264 High 720×1280 30fps + AAC 44,1 kHz stereo, khoảng 3,2 Mbps, khung khóa đúng mỗi 2 giây; khóa kiểu TikTok có `?…&…` đi qua nguyên vẹn. Chrome bật cờ autoplay mở overlay thì server báo "1 overlay, 1 có tiếng" (đúng cái bộ canh overlay đọc). Phần đo hình và tiếng của `kiem-tra.sh` phân biệt được có tiếng và im lặng. Dòng "Đẩy luồng" đi đúng các bước đang khởi động → đang nối → đang phát (có fps, kbps, tốc độ) → rớt chờ phát lại, và hiện đúng trên bảng tổng. File trạng thái không chứa khóa phát.
 - **Chưa kiểm**, vì máy phát triển không có WSL/Docker: chạy thật Xvfb + PulseAudio + Chrome kiosk + chụp `x11grab`/`pulse` trên Linux, `cai-dat.sh`, các unit systemd, mức CPU thực tế, và đẩy lên TikTok thật. Lần đầu cài lên VPS, chạy `kiem-tra.sh` và xem `journalctl` trước khi bấm phát.
 
 ## 5. Để các kênh không bị coi là nội dung trùng lặp
