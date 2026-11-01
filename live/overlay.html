@@ -137,18 +137,19 @@ function layout(c){
 }
 const visitors = new Map();  // id -> visitor
 let order = [];               // ids in seating order
-/* Thiền hành: thỉnh thoảng vài người đang ngồi (người xem thật, tên đi theo) đứng dậy, ra lối giữa, lên trước bàn thờ,
-   đi chậm qua lại một vòng rồi về chỗ. Chỉ những hình có dáng đi (nam, nữ, bà). */
+/* Lễ Phật: thỉnh thoảng một người đang ngồi (người xem thật, tên đi theo) đứng dậy, ra lối giữa, đi thẳng lên trước bàn thờ
+   (sau lưng vị trụ trì), quỳ xuống lạy ba lạy rồi về chỗ. Hai chỗ lạy hai bên lối đi. Chỉ hình có dáng đi (nam, nữ, bà). */
 let paceNext=0;
+const BOW_SPOTS=[500,580];
 function startPacing(now){
-  if (now<paceNext) return; paceNext=now+6000+Math.random()*6000;
-  const all=[...visitors.values()], limit = cap>=100 ? 4 : cap>=36 ? 2 : 1;
-  if (all.length<6 || all.filter(v=>v.state==='pace'||v.state==='standup').length>=limit) return;
+  if (now<paceNext) return; paceNext=now+5000+Math.random()*6000;
+  const all=[...visitors.values()], busy=all.filter(v=>v.bowSpot!=null);
+  if (all.length<6 || busy.length>=Math.min(cap>=36 ? 2 : 1, BOW_SPOTS.length)) return;
   const pool=all.filter(v=>v.state==='sit' && v.seat && hasAnim(v.skin) && !v.glow);
   const v=pool[Math.floor(Math.random()*pool.length)]; if (!v) return;
-  const lane=FLOOR.yTop-14, side=Math.random()<.5?-1:1, far=300+Math.random()*90;
-  v.path=[{x:540,y:v.y},{x:540,y:lane},{x:540+side*far,y:lane},{x:540-side*far,y:lane},{x:540,y:lane}];
-  v.state='standup'; v.sitT=0;
+  const spot=BOW_SPOTS.find(x=>!busy.some(b=>b.bowSpot===x));
+  v.bowSpot=spot; v.path=[{x:540,y:v.y},{x:540,y:FLOOR.yTop+30},{x:spot,y:FLOOR.yTop+18}];
+  v.state='standup'; v.next='pace'; v.sitT=0;
 }
 function reseat(){
   order = order.filter(id => visitors.has(id));
@@ -445,23 +446,26 @@ function frame(now){
       v.ft+=dt; if (v.ft>.15){ v.ft=0; v.frame=(v.frame+1)%4; }
       if (Math.abs(v.x-v.seat.x)<2 && Math.abs(v.y-v.seat.y)<3){ v.x=v.seat.x; v.y=v.seat.y; v.state='sitting'; v.sitT=0; v.flip=false; }
     } else if (v.state==='sitting'){ v.sitT+=dt; v.frame=4+Math.min(3,Math.floor(v.sitT/.22)); if (v.sitT>.9){ v.state='sit'; v.frame=7; } }
-    else if (v.state==='standup'){ v.sitT+=dt; v.frame=7-Math.min(3,Math.floor(v.sitT/.22)); if (v.sitT>.9){ v.state='pace'; v.frame=0; } }
-    else if (v.state==='pace'){                                   // thiền hành: đi chậm theo các điểm, xong thì đi về chỗ (trạng thái walk)
+    else if (v.state==='standup'){ v.sitT+=dt; v.frame=7-Math.min(3,Math.floor(v.sitT/.22)); if (v.sitT>.9){ v.state=v.next||'walk'; v.frame=0; if (v.state==='walk') v.bowSpot=null; } }
+    else if (v.state==='kneel'){ v.sitT+=dt; v.frame=4+Math.min(3,Math.floor(v.sitT/.22)); if (v.sitT>.9){ v.state='bow'; v.bowT=0; v.frame=7; } }
+    else if (v.state==='bow'){ v.bowT+=dt; if (v.bowT>3.6){ v.state='standup'; v.next='walk'; v.sitT=0; } }       // ba lạy, mỗi lạy 1,2 giây
+    else if (v.state==='pace'){                                   // đi theo các điểm lên chỗ lạy
       const p=v.path[0], dx=p.x-v.x, dy=p.y-v.y, d=Math.hypot(dx,dy), sp=125*dt;
-      if (d<=sp){ v.x=p.x; v.y=p.y; v.path.shift(); if (!v.path.length) v.state='walk'; }
+      if (d<=sp){ v.x=p.x; v.y=p.y; v.path.shift(); if (!v.path.length){ v.state='kneel'; v.sitT=0; } }
       else { v.x+=dx/d*sp; v.y+=dy/d*sp; if (Math.abs(dx)>2) v.flip=dx<0; }
       v.ft+=dt; if (v.ft>.13){ v.ft=0; v.frame=(v.frame+1)%4; }
     }
     else if (v.seat){ v.x+=(v.seat.x-v.x)*Math.min(1,dt*3); v.y+=(v.seat.y-v.y)*Math.min(1,dt*3); }      // glide when the grid grows
     v.fade=Math.min(1,v.fade+dt*2); v.glow=Math.max(0,v.glow-dt*.45); v.bow=Math.max(0,v.bow-dt*.7);
-    const ws = v.state==='walk' || v.state==='pace' ?(.26+.26*Math.max(0,Math.min(1,(v.y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop)))) * 1.12 * ((6/((GRID[cap]||GRID[24])[0]))**.4) : s;
+    const away = v.state==='walk' || v.state==='pace' || v.state==='kneel' || v.state==='bow' || v.state==='standup' && v.next==='walk';
+    const ws = away ?(.26+.26*Math.max(0,Math.min(1,(v.y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop)))) * 1.12 * ((6/((GRID[cap]||GRID[24])[0]))**.4) : s;
     if (v.glow>0 || v.skin==='master'){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=Math.max(v.glow*.75, v.skin==='master'?.35+.1*Math.sin(t*1.6):0);
       const g=ctx.createRadialGradient(v.x,v.y-110*ws,8,v.x,v.y-110*ws,200*ws); g.addColorStop(0,'rgba(255,205,120,.95)'); g.addColorStop(1,'rgba(255,160,60,0)'); ctx.fillStyle=g; ctx.fillRect(v.x-230*ws,v.y-340*ws,460*ws,400*ws); ctx.restore(); }
-    const breathe = v.state==='sit' ? Math.sin(t*1.1+v.phase)*2*ws : 0, bowK = v.state==='sit' ? Math.sin(Math.min(1,v.bow)*Math.PI)*.04 : 0;
+    const breathe = v.state==='sit' ? Math.sin(t*1.1+v.phase)*2*ws : 0, bowK = v.state==='sit' ? Math.sin(Math.min(1,v.bow)*Math.PI)*.04 : v.state==='bow' ? Math.max(0,Math.sin(v.bowT/1.2*Math.PI))*.16 : 0;
     ctx.save(); ctx.globalAlpha=v.fade; ctx.translate(v.x,v.y); if (bowK) ctx.transform(1,0,0,1-bowK,0,0);
     let topY;
     // Hình người vẽ nghiêng 3/4 sang phải. Ngồi ở nửa phải thì lật lại: cả hai khối đều nghiêng vào giữa, hướng về tượng.
-    const seated = v.state==='sit' || v.state==='sitting' || v.state==='standup';
+    const seated = v.state==='sit' || v.state==='sitting' || v.state==='standup' || v.state==='kneel' || v.state==='bow';
     if (seated ? v.x>545 : v.flip) ctx.scale(-1,1);
     if (anim){ const a=ANIM[v.skin], k=ws*1.05*260/a.seatH; ctx.drawImage(A['anim_'+v.skin], v.frame*a.fw,0,a.fw,a.fh, -a.fw*k/2, -a.fh*k+breathe, a.fw*k, a.fh*k); topY=(v.state==='sit'?a.seatH:a.fh*.97)*k; }
     else { const sk = v.skin==='master'?'monk':v.skin; sprite(A[sk]||A.man,0,breathe,ws*1.05); topY=260*ws; }
