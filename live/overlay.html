@@ -279,10 +279,17 @@ function giftFx(v, tier){
   v.glow=1; v.bow=1;
   const kind = tier>=3?'bell':tier>=2?'lotus':'incense', s=v.seat?.scale||.4;
   fx.push({kind, x:v.x, y:v.y-220*s, t:0, life: tier>=3?3.4:2.4, scale: s*(tier>=3?1.5:1.1)});
-  for (let i=0;i<(tier>=3?22:tier>=2?10:4);i++) petals.push({x:v.x+(Math.random()-.5)*120, y:v.y-80, vx:(Math.random()-.5)*40, vy:-(70+Math.random()*90), t:0, life:2.6+Math.random(), s:.16+Math.random()*.14});
-  if (tier>=3){ bell(true); for (let i=0;i<30;i++) petals.push({x:540+(Math.random()-.5)*600, y:300+Math.random()*250, vx:(Math.random()-.5)*40, vy:30+Math.random()*50, t:0, life:5, s:.2+Math.random()*.15}); }
-  if (petals.length>400) petals.splice(0, petals.length-400);
+  if (tier>=3){ bell(true); sidePetal(); sidePetal(); }
 }
+// Cánh hoa rơi rất thưa, chỉ dọc hai mép màn hình (không rơi qua tượng, người ngồi): chừng 7 giây một cánh, tối đa 6 cánh cùng lúc.
+let sideNext=0;
+function sidePetal(){
+  if (petals.filter(p=>p.side).length>=6) return;
+  const left=Math.random()<.5;
+  petals.push({ side:true, x:left ? 25+Math.random()*120 : 935+Math.random()*120, y:-30, vx:(left?1:-1)*(3+Math.random()*6), vy:34+Math.random()*20,
+    t:0, life:60, s:.08+Math.random()*.05, a:.5+Math.random()*.2, ph:Math.random()*6.28 });
+}
+function sidePetals(t){ if (t>=sideNext){ sideNext=t+5+Math.random()*4; sidePetal(); } }
 function hearts(v,n){ if (petals.length>400) return; for (let i=0;i<Math.min(6,n);i++) petals.push({x:v.x+(Math.random()-.5)*60, y:v.y-140*(v.seat?.scale||.4), vx:(Math.random()-.5)*20, vy:-(50+Math.random()*40), t:0, life:1.6, s:.08, heart:true}); }
 
 /* ======================= server link ======================= */
@@ -442,9 +449,11 @@ function frame(now){
   // gift icons rising, petals / hearts
   for (let i=fx.length-1;i>=0;i--){ const f=fx[i]; f.t+=dt; const k=f.t/f.life; if(k>=1){ fx.splice(i,1); continue; } const pop=1-Math.pow(1-Math.min(1,f.t*4),3);
     ctx.save(); ctx.globalAlpha=k<.75?1:(1-k)/.25; sprite(A[f.kind],f.x,f.y-k*170,f.scale*(.6+.4*pop)); ctx.restore(); }
-  for (let i=petals.length-1;i>=0;i--){ const p=petals[i]; p.t+=dt; if(p.t>p.life){ petals.splice(i,1); continue; } p.x+=p.vx*dt+Math.sin(p.t*3+i)*20*dt; p.y+=p.vy*dt;
-    ctx.save(); ctx.globalAlpha=Math.min(1,p.life-p.t); ctx.translate(p.x,p.y);
-    if (p.heart){ ctx.fillStyle='#ff5a7a'; ctx.font='34px serif'; ctx.textAlign='center'; ctx.fillText('♥',0,0); } else { ctx.rotate(Math.sin(p.t*2+i)*.6); sprite(A.petal,0,0,p.s,.5); }
+  sidePetals(t);
+  for (let i=petals.length-1;i>=0;i--){ const p=petals[i], ph=p.ph??i; p.t+=dt; if(p.t>p.life || p.y>1960){ petals.splice(i,1); continue; }
+    p.x+=p.vx*dt+Math.sin(p.t*(p.side?1.1:3)+ph)*(p.side?16:20)*dt; p.y+=p.vy*dt;
+    ctx.save(); ctx.globalAlpha=Math.min(p.a??1, p.side?p.t*.5:1, p.life-p.t); ctx.translate(p.x,p.y);
+    if (p.heart){ ctx.fillStyle='#ff5a7a'; ctx.font='34px serif'; ctx.textAlign='center'; ctx.fillText('♥',0,0); } else { ctx.rotate(Math.sin(p.t*(p.side?.9:2)+ph)*.6); sprite(A.petal,0,0,p.s,.5); }
     ctx.restore(); }
 }
 layout(24); requestAnimationFrame(frame);
