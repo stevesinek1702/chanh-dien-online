@@ -134,6 +134,24 @@ export const INVITE = [
   'Xin quý vị giữ lời lẽ hòa nhã, cùng nhau giữ cho thiền đường thanh tịnh.',
   'Bình luận một chữ nam, nữ, sư, ni, tiểu hay cao tăng để đổi y phục cho mình trong thiền đường.',
   'Muốn lên trước bàn thờ đảnh lễ, bạn bình luận lạy Phật, hoặc thắp hương.',
+  'Bạn muốn nhận một lời nhắn nhủ cho hôm nay? Hãy bình luận xin xăm.',
+];
+
+// Xin xăm: lời xăm tự soạn theo tinh thần nhà Phật. Chỉ khuyên tu tâm, sống thiện; không phán điều dữ,
+// không hứa tài lộc, không dính gì tới quà. Mỗi người 10 phút xin một lần (server giữ nhịp).
+export const FORTUNES = [
+  { level: 'Thượng Thượng', verse: 'Sen hồng nở giữa ao trong, tâm an thì cảnh cũng thong dong hiền.', advice: 'Giữ lòng ngay thẳng, việc lành tự đến.' },
+  { level: 'Thượng Cát', verse: 'Trăng rằm soi sáng đường xa, người hiền gặp bạn, nhà hòa êm vui.', advice: 'Siêng năng tử tế, quý người bên cạnh.' },
+  { level: 'Thượng Cát', verse: 'Gió xuân thổi mát cành mai, việc nào gieo thiện, ngày mai trổ mầm.', advice: 'Làm một việc tốt nhỏ ngay hôm nay.' },
+  { level: 'Đại Cát', verse: 'Chuông chùa vọng giữa trời mây, lòng buông phiền muộn, thân này nhẹ tênh.', advice: 'Bớt lo việc chưa tới, sống trọn hôm nay.' },
+  { level: 'Đại Cát', verse: 'Nước trong in bóng non cao, người biết nhẫn nhịn chẳng nao lòng mình.', advice: 'Một câu nhịn, chín câu lành.' },
+  { level: 'Trung Cát', verse: 'Đường quanh rồi cũng tới nơi, chậm mà vững bước, đừng rời chí xưa.', advice: 'Kiên nhẫn thêm một chút, việc sẽ thành.' },
+  { level: 'Trung Cát', verse: 'Mây che chốc lát trăng tròn, mây tan trăng lại sáng son như đầu.', advice: 'Chuyện buồn rồi sẽ qua, giữ lòng bình thản.' },
+  { level: 'Trung Bình', verse: 'Cây non cần nắng cần mưa, người cần thời gian cho vừa ước mong.', advice: 'Đừng nóng vội; chăm lo sức khỏe trước đã.' },
+  { level: 'Trung Bình', verse: 'Lời ngay như thuốc đắng môi, nghe xong mới thấy cuộc đời nhẹ hơn.', advice: 'Lắng nghe người thân nhiều hơn một chút.' },
+  { level: 'Thượng Cát', verse: 'Hương trầm thoang thoảng bên song, tâm từ mở rộng, muôn lòng thương nhau.', advice: 'Gọi hỏi thăm một người lâu rồi chưa gặp.' },
+  { level: 'Đại Cát', verse: 'Hạt lành gieo xuống đất thơm, mùa sau gặt hái no cơm ấm lòng.', advice: 'Biết đủ là giàu, biết ơn là vui.' },
+  { level: 'Trung Cát', verse: 'Thuyền đi ngược gió đừng lo, chèo đều tay giữ, bến bờ không xa.', advice: 'Giữ hơi thở đều khi gặp việc khó.' },
 ];
 
 /* ---------------------------------------------------------------- tools */

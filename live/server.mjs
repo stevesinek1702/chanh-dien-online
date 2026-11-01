@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
-import { THANK, WELCOME, FOLLOW, SHARE, PRAYER_GROUP, MINDFUL, INVITE, joinNames, fill, picker, prayerTopic, tidyName } from './lines.mjs';
+import { THANK, WELCOME, FOLLOW, SHARE, PRAYER_GROUP, MINDFUL, INVITE, joinNames, fill, picker, prayerTopic, tidyName, FORTUNES } from './lines.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');            // repo root: serves /assets, /live
@@ -100,6 +100,7 @@ const DEFAULT_SETTINGS = {
   welcomeVoice: true,                // chào người mới bình luận lần đầu
   prayerReplies: true,               // đáp lời cầu an cho bình luận có ý cầu nguyện, ai cũng như nhau
   socialVoice: true,                 // cảm ơn theo dõi, chia sẻ
+  fortune: true,                     // bình luận "xin xăm" thì rút một quẻ, hiện tờ xăm và đọc lên
   mindfulEveryMin: 7,                // lời nhắc thiền giữa các thời tụng (0 = tắt)
   hallEveryMin: 10,                  // có ảnh trong assets/gian-tho thì đổi gian thờ mỗi chừng ấy phút (0 = không đổi)
   seatMode: 'auto',                // auto | 24 | 36 | 64 | 100 | 144 | 200
@@ -113,7 +114,7 @@ const SETTING_RULES = {
   pitch: v => clamp(v, -50, 50), rate: v => clamp(v, -50, 50), moBpm: v => clamp(v, 20, 120),
   chantEveryMin: v => clamp(v, 1, 60), thankMin: v => clamp(v, 1, 50000), mindfulEveryMin: v => clamp(v, 0, 60), hallEveryMin: v => clamp(v, 0, 120),
   music: Boolean, mo: Boolean, moChantOnly: Boolean, autoChant: Boolean, dedicateNames: Boolean,
-  thankVoice: Boolean, welcomeVoice: Boolean, prayerReplies: Boolean, socialVoice: Boolean, joinOnEnter: Boolean, aiNote: Boolean,
+  thankVoice: Boolean, fortune: Boolean, welcomeVoice: Boolean, prayerReplies: Boolean, socialVoice: Boolean, joinOnEnter: Boolean, aiNote: Boolean,
   seatMode: v => ['auto', ...CAPS.map(String)].includes(String(v)) ? String(v) : 'auto',
 };
 function applySettings(target, o){ for (const [k, fn] of Object.entries(SETTING_RULES)) if (o && k in o) target[k] = fn(o[k], target[k]); }
@@ -149,13 +150,14 @@ const MAX_SEATS = CAPS.at(-1);
 const DEMO_NAMES = ['Diệu Hạnh','Minh Tâm','Thiện Đức','Huệ An','Tịnh Nhã','Quảng Trí','Chơn Như','Pháp Hỷ','Nguyên Thanh','Tâm Đăng','Diệu Liên','Trí Hải','Phước Lộc','Hạnh Nguyện','Như Ý','Bảo Châu','Thanh Lương','Từ Tâm','An Lạc','Giác Hoa','Tuệ Minh','Liên Hương','Thu Hà','Ngọc Lan','Đức Anh','Hải Đăng','Mai Anh','Phương Thảo','Trung Kiên','Quang Huy','Bảo Ngọc','Diệu Linh'];
 const BOT_LINES = ['Nam mô A Di Đà Phật', 'Nam mô Bổn Sư Thích Ca Mâu Ni Phật', 'Cầu cho gia đình bình an', 'Con xin thành tâm sám hối', 'nữ', 'nam', 'Con xin lạy Phật',
   'Nguyện cầu cha mẹ mạnh khỏe', 'Mô Phật, an lạc quá', 'Chúc mọi người một ngày bình an', 'sư', 'Cầu công việc hanh thông',
-  'Cầu cho mẹ con mau khỏi bệnh', 'Mai con đi thi, xin cầu cho con bình tĩnh', 'Cầu siêu cho ông nội con mới mất', 'Nghe chuông thấy nhẹ lòng ghê', 'ni', 'tiểu'];
+  'Cầu cho mẹ con mau khỏi bệnh', 'Mai con đi thi, xin cầu cho con bình tĩnh', 'Cầu siêu cho ông nội con mới mất', 'Nghe chuông thấy nhẹ lòng ghê', 'ni', 'tiểu', 'Xin xăm đầu năm'];
 
 // Hàng chờ câu nói tự động. Lời tụng và lời nhắc thiền đi thẳng vào hàng đợi giọng đọc; các câu phản hồi người xem
 // chỉ được nói khi giọng đang rảnh, theo thứ tự ưu tiên và nhịp tối thiểu, nên LIVE đông người cũng không bị nói dồn.
 const VOICE_ORDER = ['thank', 'prayer', 'follow', 'welcome', 'share'];
 const VOICE_GAP = { thank: 0, prayer: 40_000, follow: 20_000, welcome: 25_000, share: 30_000 };
 const VOICE_TTL = { thank: 5 * 60_000, prayer: 10 * 60_000, follow: 3 * 60_000, welcome: 2 * 60_000, share: 3 * 60_000 };
+const FORTUNE_RE = /(?<!\p{L})(xin xăm|xin xâm|gieo quẻ|rút quẻ|xin quẻ|rút xăm|bốc xăm)(?!\p{L})/u;
 const VOICE_SETTING = { thank: 'thankVoice', prayer: 'prayerReplies', follow: 'socialVoice', welcome: 'welcomeVoice', share: 'socialVoice' };
 
 /* --------------------------------------------------------------- TikTok */
@@ -278,8 +280,18 @@ class Channel {
     v.lastText = text; v.lastTextAt = now();
     this.broadcast({ t: 'chat', id, name: v.name, text });
     if (isNew && v.name !== 'Khách') this.enqueue('welcome', { name: v.name });
+    if (!want && FORTUNE_RE.test(text.toLowerCase().normalize('NFC'))){ this.fortune(v); return; }
     const topic = !want && prayerTopic(text);
+    if (topic && !(v.lanternAt > now() - 60_000)){ v.lanternAt = now(); this.broadcast({ t: 'lantern', id, name: v.name }); }   // đèn hoa đăng bay lên
     if (topic && v.name !== 'Khách' && !(v.prayedAt > now() - 10 * 60_000)){ v.prayedAt = now(); this.enqueue('prayer', { name: v.name, topic }); }
+  }
+  // Xin xăm: mỗi người 10 phút một quẻ; tờ xăm hiện trên overlay và được đọc lên.
+  fortune(v){
+    if (!this.settings.fortune || v.fortuneAt > now() - 10 * 60_000) return;
+    v.fortuneAt = now();
+    const no = Math.floor(Math.random() * FORTUNES.length), f = FORTUNES[no];
+    this.broadcast({ t: 'fortune', id: v.id, name: v.name, no: no + 1, ...f });
+    this.say(`${spoken(v.name)} xin được quẻ số ${no + 1}, ${f.level}. ${f.verse} Lời khuyên: ${f.advice}`, { tag: 'fortune' });
   }
   onSocial(kind, user){
     const id = uidOf(user); if (!id) return;
