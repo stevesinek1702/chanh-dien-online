@@ -1,89 +1,75 @@
 # Chánh Điện Tịnh Tâm
 
-Chánh điện online 2.5D cho TikTok LIVE. Mỗi người xem bình luận là bước vào chánh điện, ngồi xuống bồ đoàn tụng kinh. Ai tặng quà sẽ được xướng tên hồi hướng bằng giọng đọc tiếng Việt. Có nhạc thiền, chuông, mõ và đọc kinh định kỳ.
-
-Mã nguồn chia sẻ miễn phí (MIT). Có hai phần:
+Thiền đường 2.5D cho TikTok LIVE, chạy **nhiều kênh cùng lúc** từ một máy. Người xem bình luận là bước vào thiền đường, ngồi xuống bồ đoàn. Có nhạc nền, chuông, mõ theo thời tụng, tụng kinh định kỳ, lời nhắc thiền, và giọng đọc tiếng Việt tự chào người mới, đáp lời cầu an, cảm ơn quà, theo dõi, chia sẻ.
 
 | Thư mục | Là gì |
 |---|---|
-| `index.html`, `assets/` | Bản web tĩnh cho mọi người tự vào ngồi tụng (đăng lên Cloudflare Pages) |
-| `live/` | Bộ công cụ phát LIVE: server Node, overlay 9:16, bảng điều khiển |
+| `live/` | Bộ phát LIVE: server Node đa kênh, bảng tổng, bảng điều khiển từng kênh, overlay 9:16 |
+| `index.html`, `assets/` | Bản web tĩnh để tự vào ngồi thử, và hình, nhạc dùng chung |
+| `docs/` | Hướng dẫn chạy nhiều kênh, chạy 24h trên VPS, báo cáo đánh giá |
 
-## Chạy bộ LIVE trên máy phát
+## Chạy
 
-Cần Node.js 20 trở lên.
+Cần Node.js 20 trở lên. Trên Windows, bấm đúp **`Chay-Live.cmd`**: lần đầu tự cài thư viện, mở bảng tổng, và tự khởi động lại server nếu có sự cố (phù hợp LIVE 10h, 24h).
+
+Hoặc chạy tay:
 
 ```bash
 cd live
-npm install
+npm ci --ignore-scripts
 npm start
 ```
 
-1. Mở `http://localhost:3000/live/control.html` (bảng điều khiển).
-2. Bấm **Mở màn hình overlay 9:16**, rồi bấm **Bật âm thanh** một lần trong cửa sổ đó (trình duyệt chặn tự phát tiếng).
-3. Trong TikTok LIVE Studio: *Add source → Window capture* → chọn cửa sổ overlay. Với OBS thì dùng *Browser source* trỏ tới `http://localhost:3000/live/overlay.html`, kích thước 1080×1920.
-4. Bật LIVE trên TikTok, nhập `@username` vào bảng điều khiển, bấm **Kết nối**.
+1. Mở `http://localhost:3000/`: **bảng tổng**, mặc định có 4 kênh (thêm được tới 8).
+2. Mỗi kênh: nhập `@username` TikTok rồi bấm **Kết nối**. Bấm trước hay sau khi lên LIVE đều được: server tự chờ đến lúc kênh LIVE, rớt mạng thì tự nối lại.
+3. Đưa overlay của từng kênh vào phần mềm phát:
+   - **OBS** (khuyên dùng khi phát nhiều kênh): Browser source trỏ tới `http://localhost:3000/live/overlay.html?ch=kenh1`, 1080×1920, tích *Control audio via OBS*. Âm thanh tự bật.
+   - **TikTok LIVE Studio** (một kênh): chạy `Mo-Overlay.cmd`, rồi *Add source → Window capture* chọn cửa sổ overlay.
+4. Bảng điều khiển từng kênh (`/live/control.html?ch=kenh1`): giọng đọc, nhạc, mõ, thời tụng, câu nói tự động, tên thiền đường, thử tương tác.
 
-Chưa live vẫn thử được: dùng **Thử tương tác**, **Đổ người mẫu 15/36/64/100** hoặc **Bot mô phỏng**.
+Chưa LIVE vẫn thử được: **Thử tương tác**, **Đổ người mẫu**, **Bot mô phỏng**. Khi bấm Kết nối TikTok, phần giả lập tự bị khóa và người mẫu, bot được dọn khỏi màn hình, để không có tương tác giả nào lên LIVE thật.
+
+Chạy nhiều kênh, chạy 24h, chạy trên VPS: xem [docs/HUONG-DAN-DA-KENH.md](docs/HUONG-DAN-DA-KENH.md).
 
 ### Người xem làm được gì
 
-- **Bình luận bất kỳ**: được vào ngồi (tối đa 100 chỗ, chỗ ngồi tự mở rộng 24 → 36 → 64 → 100). Đầy chỗ thì người im lặng lâu nhất mà chưa tặng quà sẽ nhường chỗ.
-- **Bình luận đúng một từ** `nam`, `nữ`, `sư`, `ni`, `tiểu`, `bà`, `cao tăng`: đổi hình nhân vật. Câu "Nam mô A Di Đà Phật" không bị hiểu nhầm thành "nam".
-- **Tặng quà**: banner xướng tên, giọng đọc hồi hướng (lấy lời nguyện từ bình luận gần nhất của người đó nếu có), hiệu ứng theo giá trị quà, cộng điểm vào bảng Công Đức.
-- **Thả tim**: tim bay trên đầu nhân vật.
+- **Bình luận bất kỳ**: vào ngồi (tối đa 100 chỗ, tự mở rộng 24 → 36 → 64 → 100), được chào bằng giọng đọc.
+- **Bình luận có ý cầu nguyện** (cầu an, cầu siêu, cha mẹ, sức khỏe, công việc, thi cử, sám hối…): giọng đọc đáp một lời cầu an theo chủ đề. Ai bình luận cũng như nhau, không phụ thuộc quà.
+- **Bình luận đúng một từ** `nam`, `nữ`, `sư`, `ni`, `tiểu`, `bà`, `cao tăng`: đổi hình nhân vật.
+- **Tặng quà**: hiệu ứng theo giá trị quà, lời cảm ơn (gom nhiều quà liên tiếp thành một câu), tên lên bảng *Tri Ân*.
+- **Thả tim, theo dõi, chia sẻ**: tim bay trên đầu nhân vật, lời cảm ơn.
 
-## Bảo mật
+### Nhạc, kinh, thiền
 
-Dự án được viết để ai tải về chạy cũng an toàn mặc định:
+- **Kinh**: một vòng thời khóa ngắn theo nghi thức phổ thông: Kệ khai kinh → Bát Nhã Tâm Kinh → Niệm Phật, Vãng sanh → Quán Thế Âm → Sám nguyện → Hồi hướng (kèm tên những người vừa bình luận). Văn bản Hán Việt truyền thống, không vướng bản quyền.
+- **Mõ** chỉ gõ trong lúc tụng; giữa các thời tụng là khoảng thiền yên lặng có nhạc nền, chuông và lời nhắc thở.
+- **Nhạc**: mọi file `.mp3` trong `assets/music/`. Muốn mỗi kênh nhạc riêng, tạo thư mục `assets/music/kenh1/`, `assets/music/kenh2/`… Chỉ dùng nhạc tự làm, nhạc AI bạn có quyền dùng, hoặc nhạc có giấy phép cho phép phát LIVE. Nhạc Phật giáo trên mạng phần lớn có chủ sở hữu và có thể khiến LIVE bị tắt tiếng hoặc dừng.
 
-- **Không dùng tài khoản TikTok.** Server chỉ đọc sự kiện công khai của phòng live theo username. Không cần, không hỏi và không lưu mật khẩu, cookie hay session. Không gửi tin nhắn thay bạn.
-- **Chỉ mở trên máy mình.** Server lắng nghe `127.0.0.1`, máy khác trong mạng hay Internet không truy cập được. Muốn mở ra ngoài phải tự đặt biến `HOST`. Không nên làm vậy khi chưa thêm đăng nhập.
-- **Chặn trang web lạ điều khiển.** WebSocket chỉ nhận kết nối từ chính trang của server (kiểm tra `Origin`), và header `Host` phải là localhost (chống DNS rebinding). Một trang web khác đang mở trong cùng trình duyệt không gửi được lệnh. Cửa sổ overlay chỉ nhận dữ liệu, không gửi lệnh được.
-- **File tĩnh có danh sách trắng.** Chỉ phục vụ `/assets` và `/live`. Chặn file ẩn (`.git`, `.env`), `node_modules`, mã server, `package.json` và mọi đường dẫn `../`.
-- **Không tin dữ liệu vào.** Tên người xem, bình luận và tên quà đều bị cắt độ dài. Cài đặt chỉ nhận đúng khóa, đúng kiểu, trong giới hạn. Văn bản đưa vào giọng đọc được escape XML. Mọi chữ trên màn hình vẽ bằng `textContent` hoặc canvas, không chèn HTML, nên bình luận chứa mã độc chỉ hiện ra như chữ thường.
-- **Chống spam.** Hàng đợi giọng đọc tối đa 15 câu. Bình luận thường không đọc thành tiếng.
-- **Phụ thuộc ghim phiên bản** trong `live/package.json`: `ws`, `msedge-tts`, `tiktok-live-connector`. Không có khóa API nào trong mã.
+## An toàn và tuân thủ
 
-Các lớp trên đã được thử: đường dẫn `../`, `%2e%2e`, `.git/config`, `server.mjs`, `package.json` đều trả 404. Host giả trả 421. WebSocket từ Origin lạ bị từ chối. Lệnh gửi từ overlay bị bỏ qua. Cài đặt sai kiểu bị kẹp về giới hạn.
+- **Không dùng tài khoản TikTok.** Server chỉ đọc sự kiện công khai của phòng LIVE theo username, không cần, không hỏi, không lưu mật khẩu hay cookie.
+- **Chỉ mở trên máy mình.** Server nghe `127.0.0.1`; Host phải là localhost (chống DNS rebinding); WebSocket chỉ nhận trang của chính server; overlay chỉ nghe, không gửi lệnh được.
+- **File tĩnh theo danh sách trắng**: chỉ `/assets` và `/live`, chỉ đuôi trang và media; mã nguồn, cấu hình, `data/`, `node_modules`, `.git` đều trả 404.
+- **Lọc chữ lên màn hình**: bình luận và tên có từ bậy, link, số điện thoại, Zalo/Telegram, kiểu rao "400/1h" không hiện lên LIVE. Thêm từ riêng trong `live/blocklist.txt`.
+- **Quà không đổi lấy cầu nguyện**: quà chỉ được cảm ơn và chúc chung. Lời cầu an, hồi hướng dành cho mọi người như nhau. Theo quy định TikTok, nội dung tìm cách thao túng người xem tặng quà không được đề xuất và không được kiếm tiền; luật Việt Nam cấm lợi dụng hoạt động tôn giáo để trục lợi.
+- **Ghi rõ AI**: dòng nhỏ "hình minh họa, nhạc và giọng đọc tạo bằng AI" trên overlay (tắt được).
 
-### Lưu ý
+Những rủi ro code không tự xử lý được (LIVE không người, nhiều kênh cùng nội dung, thư viện không chính thức) được ghi trong [docs/DANH-GIA.md](docs/DANH-GIA.md).
 
-- `tiktok-live-connector` là thư viện cộng đồng, không phải API chính thức của TikTok. Nó có thể ngừng chạy khi TikTok đổi hệ thống. Kiểm tra điều khoản TikTok trước khi dùng cho kênh của bạn.
-- Giọng đọc dùng dịch vụ Read Aloud của Microsoft Edge qua mạng (giọng Nam Minh, Hoài My). Máy phát cần có Internet.
-- Hình ảnh trong `assets/` được tạo bằng Google Flow, nhạc nền tạo bằng Gemini. Kiểm tra điều khoản của các dịch vụ đó trước khi dùng thương mại, hoặc thay bằng tài nguyên của bạn.
+## Kiểm tra
 
-## Miễn trừ trách nhiệm
+```bash
+cd live
+npm test           # 28 bước: bảo mật, tách kênh, lọc chữ, khóa giả lập, giọng đọc, lưu cấu hình
+npm run soak -- 30 # chạy thử 30 phút với 4 overlay và bot, đo bộ nhớ, để bắt rò rỉ trước khi LIVE dài
+```
 
-Dự án được chia sẻ **miễn phí, với mục đích học tập và tham khảo lập trình**. Phần mềm được cung cấp "nguyên trạng" (AS IS), không kèm bất kỳ bảo đảm nào, rõ ràng hay ngụ ý.
+## Ghi chú
 
-Khi tải về, sử dụng, chỉnh sửa hoặc phân phối lại mã nguồn này, **bạn tự chịu hoàn toàn trách nhiệm** về:
-
-- Mọi nội dung bạn phát trên livestream hoặc đăng tải, bao gồm hình ảnh, âm thanh, giọng đọc, lời nguyện, bình luận được hiển thị.
-- Việc nhận quà, donation hoặc bất kỳ khoản thu nào từ người xem.
-- Việc tuân thủ điều khoản sử dụng của TikTok và các nền tảng, dịch vụ bên thứ ba khác (thư viện đọc sự kiện TikTok là thư viện cộng đồng, không chính thức).
-- Việc tuân thủ pháp luật nơi bạn sinh sống và hoạt động, kể cả quy định về hoạt động tôn giáo, quảng cáo, thuế và bản quyền.
-- Mọi rủi ro và thiệt hại phát sinh, trực tiếp hay gián tiếp, như bị khóa tài khoản, bị dừng live, mất dữ liệu, tranh chấp hay khiếu nại.
-
-Tác giả **không liên quan, không bảo trợ và không chịu trách nhiệm** đối với bất kỳ kênh, tài khoản, sản phẩm hay hoạt động nào sử dụng mã nguồn này. Dự án không đại diện cho bất kỳ chùa, tu viện hay tổ chức tôn giáo nào. Khi dùng nội dung liên quan đến Phật giáo, xin giữ sự tôn kính và không dùng vào mục đích lừa đảo, trục lợi hay xúc phạm niềm tin của người khác.
-
-Việc sử dụng mã nguồn đồng nghĩa với việc bạn đã đọc và đồng ý với các điều trên.
-
-> **Disclaimer (EN):** This project is shared free of charge for educational purposes only and is provided "AS IS", without warranty of any kind. Anyone who uses, modifies or redistributes it is solely responsible for their own content, streams, donations, compliance with TikTok and other platforms' terms, and applicable laws. The author is not affiliated with, does not endorse, and accepts no liability for any channel, account, product or activity built with this code, nor for any direct or indirect damages.
-
-## Ủng hộ tác giả
-
-Dự án chia sẻ miễn phí. Nếu thấy hữu ích và muốn góp chút công đức để tác giả duy trì và làm thêm tính năng, bạn có thể chuyển khoản:
-
-| | |
-|---|---|
-| Ngân hàng | **MB Bank** |
-| Số tài khoản | **999979798886** |
-| Chủ tài khoản | **HUYNH HUU NHAN** |
-
-![QR chuyển khoản MB Bank](https://img.vietqr.io/image/MB-999979798886-compact2.png?accountName=HUYNH%20HUU%20NHAN&addInfo=Ung%20ho%20Chanh%20Dien%20Online)
-
-Xin cảm ơn và chúc bạn thân tâm an lạc. Nam mô A Di Đà Phật.
+- `tiktok-live-connector` là thư viện cộng đồng, không phải API chính thức của TikTok; nó dùng máy chủ ký của Euler Stream. Gói miễn phí giới hạn lượt kết nối theo IP; chạy từ 2 kênh trở lên nên đăng ký khóa miễn phí ở eulerstream.com và đặt `SIGN_API_KEY` (xem `Chay-Live.cmd`).
+- Giọng đọc dùng dịch vụ Read Aloud của Microsoft Edge qua mạng (giọng Nam Minh, Hoài My).
+- Hình ảnh trong `assets/` tạo bằng Google Flow, nhạc nền tạo bằng Gemini. Kiểm tra điều khoản của các dịch vụ đó trước khi dùng thương mại, hoặc thay bằng tài nguyên của bạn.
+- Dự án không đại diện cho chùa hay tổ chức tôn giáo nào. Xin giữ sự tôn kính khi dùng nội dung Phật giáo.
 
 ## Giấy phép
 

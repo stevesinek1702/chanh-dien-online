@@ -1,0 +1,8 @@
+# Danh sách chặn thêm (ngoài danh sách có sẵn trong server.mjs).
+# Mỗi dòng một từ hoặc cụm từ, viết thường, có dấu. Dòng bắt đầu bằng # là ghi chú.
+# Bình luận chứa từ ở đây sẽ không hiện bong bóng trên màn hình LIVE; tên người xem chứa từ ở đây hiện thành "Khách".
+# Link, số điện thoại, Zalo, Telegram đã bị chặn sẵn. Server tự đọc lại file này sau vài giây khi bạn lưu.
+#
+# Ví dụ:
+# lừa đảo
+# chuyển khoản

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bảng tổng đa kênh · Chánh Điện Tịnh Tâm</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@600;700&family=Be+Vietnam+Pro:wght@400;500;600&display=swap">
+<style>
+/* One card per channel: connection, live numbers, overlay health, links. Auto-fit grid, one column on phones. */
+:root{
+  --bg:#140b07; --card:#1f120b; --card2:#2a180e; --fg:#f3e5cb; --muted:#b39a78; --line:#4a2e1a;
+  --gold:#e2b04f; --red:#8f2a1a; --green:#2f7a4a; --display:"Noto Serif",Georgia,serif; --body:"Be Vietnam Pro",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 var(--body);padding:18px max(16px,env(safe-area-inset-right)) 30px max(16px,env(safe-area-inset-left))}
+a{color:var(--gold)}
+header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;margin-bottom:16px}
+h1{font-family:var(--display);font-size:24px;margin:0;color:var(--gold)}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip.ok{border-color:var(--green);color:#9fe0b4}.chip.bad{border-color:#a33;color:#f3a3a3}.chip.wait{border-color:#8a6a2a;color:#f0d08a}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px;min-width:0}
+.card.live{border-color:#3f9a60;box-shadow:0 0 0 1px #2f7a4a inset}
+.top{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.name{font:700 18px var(--display);color:var(--gold);background:none;border:1px solid transparent;border-radius:8px;padding:2px 6px;margin-left:-6px;min-width:0;flex:1;color-scheme:dark}
+.name:hover,.name:focus{border-color:var(--line);outline:none;background:#0f0805}
+.id{font:12px ui-monospace,Consolas,monospace;color:var(--muted)}
+.text{color:var(--muted);font-size:12px;min-height:2.9em;overflow-wrap:anywhere}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.stat{background:#0f0805;border:1px solid var(--line);border-radius:10px;padding:6px 8px;min-width:0}
+.stat b{display:block;font-size:17px;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--muted)}
+.alert{font-size:12px;color:#f0d08a;border:1px solid #6b5420;border-radius:9px;padding:6px 9px;background:#2a2008}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>input{flex:1 1 140px}
+input{font:inherit;color:var(--fg);background:#0f0805;border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-width:0}
+button{font:600 13px var(--body);color:var(--fg);background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--gold)}
+button:focus-visible,input:focus-visible,.name:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+button.primary{background:var(--green);border-color:#3f9a60}
+button.gold{background:#6b4a14;border-color:var(--gold)}
+button.ghost{background:none}
+button.red{background:none;border-color:#6b2a20;color:#f3a3a3}
+.links{display:flex;gap:8px;flex-wrap:wrap}
+.add{display:grid;place-items:center;min-height:180px;border-style:dashed;color:var(--muted);cursor:pointer;font:600 15px var(--body);background:none}
+.add:hover{color:var(--gold);border-color:var(--gold)}
+.guide{margin-top:18px;color:var(--muted);font-size:13px;line-height:1.6}
+.guide b{color:var(--fg)}
+code{background:#0f0805;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:12px;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<header>
+  <h1>Chánh Điện · Bảng tổng đa kênh</h1>
+  <div class="bar">
+    <span class="chip" id="srv">Server: …</span>
+    <span class="chip" id="key" title="Khóa Euler Stream giúp kết nối nhiều kênh không bị giới hạn lượt">Khóa Euler: …</span>
+    <button class="primary" id="allOn">Kết nối tất cả</button>
+    <button id="allOff">Ngắt tất cả</button>
+  </div>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<section class="guide">
+  <b>Cách dùng nhanh:</b> nhập username TikTok cho từng kênh rồi bấm Kết nối (trước hay sau khi lên LIVE đều được, server tự chờ và tự nối lại khi rớt).
+  Mỗi kênh cần một nguồn phát riêng: trong OBS, mỗi tài khoản một cửa sổ OBS (<code>obs64.exe --multi</code>) với Browser source trỏ đúng địa chỉ overlay của kênh đó, tích “Control audio via OBS”, khóa phát (stream key) của đúng tài khoản.
+  Xem chi tiết trong <code>docs/HUONG-DAN-DA-KENH.md</code>.
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+let ws = null, state = null;
+const send = (cmd, extra={}) => ws?.readyState===1 && ws.send(JSON.stringify({ t:'dash', cmd, ...extra }));
+const STATUS = { connected:['ok','Đang LIVE · đã nối'], checking:['wait','Đang kiểm tra'], waiting:['wait','Chờ LIVE'], connecting:['wait','Đang kết nối'], error:['bad','Lỗi · sẽ thử lại'], idle:['','Chưa kết nối'] };
+const dur = ms => { if (ms==null || ms<0) return '—'; const s=Math.floor(ms/1000); const h=Math.floor(s/3600), m=Math.floor(s%3600/60); return h ? `${h}g ${String(m).padStart(2,'0')}p` : m ? `${m}p ${String(s%60).padStart(2,'0')}s` : `${s}s`; };
+const num = n => (n||0).toLocaleString('vi-VN');
+const overlayUrl = id => `http://localhost:${location.port||80}/live/overlay.html?ch=${id}`;
+
+function el(tag, props={}, ...kids){ const e=document.createElement(tag); for (const [k,v] of Object.entries(props)) { if (k==='class') e.className=v; else if (k.startsWith('on')) e[k]=v; else e.setAttribute(k,v); } for (const k of kids) e.append(k); return e; }
+const cards = new Map();
+function card(c){
+  let k = cards.get(c.id);
+  if (!k){
+    k = {};
+    k.name = el('input', { class:'name', 'aria-label':'Tên kênh', maxlength:'30' });
+    k.name.onchange = () => send('rename', { ch:c.id, name:k.name.value });
+    k.chip = el('span', { class:'chip' });
+    k.text = el('div', { class:'text' });
+    k.user = el('input', { placeholder:'@username TikTok', autocomplete:'off', 'aria-label':'Username TikTok' });
+    k.user.onkeydown = e => { if (e.key==='Enter') send('connect', { ch:c.id, uniqueId:k.user.value }); };
+    k.on = el('button', { class:'primary', onclick:() => send('connect', { ch:c.id, uniqueId:k.user.value }) }, 'Kết nối');
+    k.off = el('button', { onclick:() => send('disconnect', { ch:c.id }) }, 'Ngắt');
+    k.s = {}; const stat = (key, label) => { k.s[key] = el('b'); return el('div', { class:'stat' }, k.s[key], el('span', {}, label)); };
+    k.alert = el('div', { class:'alert' });
+    k.root = el('section', { class:'card' },
+      el('div', { class:'top' }, k.name, k.chip),
+      el('div', { class:'id' }, c.id),
+      el('div', { class:'row' }, k.user, k.on, k.off),
+      k.text,
+      el('div', { class:'stats' }, stat('viewers','người xem TikTok'), stat('seated','đang ngồi'), stat('comments','bình luận'),
+        stat('gifts','quà · xu'), stat('likes','lượt tim'), stat('up','đã nối được')),
+      k.alert,
+      el('div', { class:'links' },
+        el('a', { href:'/live/control.html?ch='+encodeURIComponent(c.id), target:'_blank', rel:'noopener' }, el('button', { class:'gold' }, 'Bảng điều khiển')),
+        el('button', { onclick:() => window.open('/live/overlay.html?ch='+encodeURIComponent(c.id), 'overlay_'+c.id, 'width=540,height=960') }, 'Mở overlay'),
+        el('button', { class:'ghost', onclick:e => { navigator.clipboard?.writeText(overlayUrl(c.id)).then(() => { e.target.textContent='Đã chép ✓'; setTimeout(()=>e.target.textContent='Chép link OBS',1500); }).catch(()=>prompt('Link overlay cho OBS:', overlayUrl(c.id))); } }, 'Chép link OBS'),
+        el('button', { class:'red', onclick:() => { if (confirm(`Xóa ${c.name}? Cấu hình của kênh này sẽ mất.`)) send('remove', { ch:c.id }); } }, 'Xóa')));
+    cards.set(c.id, k);
+  }
+  if (document.activeElement !== k.name) k.name.value = c.name;
+  if (document.activeElement !== k.user && (c.uniqueId || !k.user.value)) k.user.value = c.uniqueId ? '@'+c.uniqueId : '';
+  const [cls, label] = STATUS[c.status] || ['', c.status];
+  k.chip.className = 'chip ' + cls; k.chip.textContent = label;
+  k.root.classList.toggle('live', c.status==='connected');
+  let text = c.text || '';
+  if (c.nextRetryAt && c.status!=='connected') { const s = Math.max(0, Math.round((c.nextRetryAt - state.now)/1000)); if (s>0) text += ` · lần thử kế tiếp sau ${s}s`; }
+  if (c.status==='connected' && c.lastEventAgo!=null) text += ` · dữ liệu mới nhất ${dur(c.lastEventAgo)} trước`;
+  k.text.textContent = text;
+  k.s.viewers.textContent = c.status==='connected' ? num(c.stats.viewerCount) : '—';
+  k.s.seated.textContent = num(c.seated);
+  k.s.comments.textContent = num(c.stats.comments);
+  k.s.gifts.textContent = `${num(c.stats.gifts)} · ${num(c.stats.coins)}`;
+  k.s.likes.textContent = num(c.stats.likes);
+  k.s.up.textContent = c.connectedAt ? dur(state.now - c.connectedAt) : '—';
+  const alerts = [];
+  if (!c.overlays) alerts.push('Chưa mở overlay nào: kênh này chưa có hình và tiếng để phát.');
+  else if (!c.audio) alerts.push(`Có ${c.overlays} overlay nhưng chưa bật âm thanh (bấm nút trong cửa sổ overlay, hoặc dùng OBS).`);
+  if (c.overlays > 1) alerts.push(`Đang mở ${c.overlays} overlay cho cùng kênh: tiếng có thể bị phát đôi.`);
+  if (c.bots) alerts.push('Bot mô phỏng đang bật.');
+  k.alert.textContent = alerts.join(' '); k.alert.hidden = !alerts.length;
+  return k.root;
+}
+function render(){
+  const grid = $('grid'), ids = new Set(state.channels.map(c => c.id));
+  for (const [id, k] of cards) if (!ids.has(id)) { k.root.remove(); cards.delete(id); }
+  const nodes = state.channels.map(card);
+  if (state.channels.length < state.max) nodes.push(addCard);
+  // re-inserting nodes would blur an input the user is typing in, so only touch the DOM when the set changed
+  if (nodes.length !== grid.children.length || nodes.some((n, i) => grid.children[i] !== n)) grid.replaceChildren(...nodes);
+  $('key').textContent = 'Khóa Euler: ' + (state.signKey ? 'có' : 'chưa có');
+  $('key').className = 'chip ' + (state.signKey ? 'ok' : 'wait');
+  $('srv').textContent = 'Server: chạy ' + dur(state.now - state.serverStartedAt);
+}
+const addCard = el('button', { class:'card add', onclick:() => send('add') }, '+ Thêm kênh');
+function connect(){
+  ws = new WebSocket(`ws://${location.host}/ws?role=dashboard`);
+  ws.onopen = () => { $('srv').className='chip ok'; };
+  ws.onclose = () => { $('srv').textContent='Server: mất kết nối'; $('srv').className='chip bad'; setTimeout(connect, 2000); };
+  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.t==='dash'){ state = m; render(); } };
+}
+connect();
+$('allOn').onclick = () => send('connectAll');
+$('allOff').onclick = () => { if (confirm('Ngắt kết nối TikTok của tất cả các kênh?')) send('disconnectAll'); };
+</script>
+</body>
+</html>
