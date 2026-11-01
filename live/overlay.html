@@ -128,18 +128,21 @@ function avatar(url){
 const FLOOR = { yTop: 1215, yBot: 1845, halfTop: 290, halfBot: 430 };
 const GRID = { 24:[6,4], 36:[6,6], 64:[8,8], 100:[10,10], 144:[12,12], 200:[14,15] };
 let cap = 24, seats = [];
+let seatCols=10;                                              // số cột của lưới gốc, dùng cho cỡ người đang đi
 function layout(c){
+  // Đến 100 chỗ: luôn dùng khoảng cách của lưới 100 và xếp từ hàng đầu sàn ra sau, nên ít người vẫn là một khối
+  // ngồi sát nhau, đông lên thì khối dày dần về phía bàn thờ. 144, 200 chỗ: lưới riêng, trải gần hết bề ngang.
   cap = c; const [cols, rows] = GRID[c] || GRID[24]; seats = [];
+  const [bc, br] = c<=100 ? GRID[100] : [cols, rows], wide = c>=144 ? 1.13 : 1; seatCols = bc;
   for (let r=0;r<rows;r++){
-    const t = rows===1 ? .5 : r/(rows-1);                     // 0 = back row
+    const t = br===1 ? .5 : (br-rows+r)/(br-1);              // 0 = hàng sát bàn thờ của lưới gốc
     const y = FLOOR.yTop + (FLOOR.yBot-FLOOR.yTop)*t;
-    const wide = c>=144 ? 1.13 : 1;                           // big crowds spread to almost the full width, like a real assembly
     const half = (FLOOR.halfTop + (FLOOR.halfBot-FLOOR.halfTop)*t) * wide;
-    const scale = (.26 + .24*t) * 1.12 * (6/cols) ** .4;          // crowded halls keep people large: rows overlap like a real assembly
-    const gap = 2*half/(cols-1) * .93;                        // room for one name tag
+    const scale = (.26 + .24*t) * 1.12 * (6/bc) ** .4;           // hàng sát nhau, hàng trước che bớt hàng sau như một đại chúng
+    const aisle = .14*half, step = 1.72*half/(bc-1), gap = step*.93;
     for (let k=0;k<cols;k++){
-      let u = (k-(cols-1)/2)/((cols-1)/2); u = Math.sign(u)*(.14 + .86*Math.abs(u));   // open a centre aisle
-      seats.push({ x: 540 + u*half, y, scale, r, k, rows, gap, aisle: .14*half });
+      const side = k<cols/2 ? -1 : 1, j = side<0 ? cols/2-1-k : k-cols/2;    // j = 0 là cột sát lối đi
+      seats.push({ x: 540 + side*(aisle + step*(j+.5)), y, scale, r, k, rows, gap, aisle });
     }
   }
   // fill front rows first, aisle side first, so a small crowd still looks full on camera
@@ -454,6 +457,21 @@ function clouds(t){
   }
   ctx.restore();
 }
+/* Sàn: phủ lớp sàn gỗ trơn che bồ đoàn vẽ sẵn trong ảnh (to quá so với người) và trải thảm đỏ viền vàng ở lối giữa.
+   Vẽ sẵn một lần ra canvas phụ; mỗi khung chỉ drawImage. */
+const FLOOR_IMG=(()=>{ const top=1178, c=document.createElement('canvas'); c.width=1080; c.height=1920-top; const g=c.getContext('2d'), H=c.height, vx=540, vy=880-top;
+  const wood=g.createLinearGradient(0,0,0,H); wood.addColorStop(0,'rgba(74,38,18,.0)'); wood.addColorStop(.05,'rgba(74,38,18,.93)'); wood.addColorStop(1,'rgba(40,20,9,.97)');
+  g.fillStyle=wood; g.fillRect(0,0,1080,H);
+  g.strokeStyle='rgba(20,8,2,.35)'; g.lineWidth=2;                         // ván gỗ chụm về điểm tụ sau bàn thờ
+  for (let i=-14;i<=14;i++){ const xb=540+i*80; g.beginPath(); g.moveTo(vx+(xb-vx)*(20-vy)/(H-vy),20); g.lineTo(xb,H); g.stroke(); }
+  const shine=g.createRadialGradient(540,40,10,540,40,520); shine.addColorStop(0,'rgba(255,190,110,.28)'); shine.addColorStop(1,'rgba(255,190,110,0)'); g.fillStyle=shine; g.fillRect(0,0,1080,H);
+  const lane=(y,w)=>[540-w,y,540+w,y];                                      // thảm: hẹp ở phía bàn thờ, rộng dần về phía trước
+  const [a,b]=[lane(14,44),lane(H,66)];
+  g.beginPath(); g.moveTo(a[0],a[1]); g.lineTo(a[2],a[3]); g.lineTo(b[2],b[3]); g.lineTo(b[0],b[1]); g.closePath();
+  const red=g.createLinearGradient(0,0,0,H); red.addColorStop(0,'#7a1710'); red.addColorStop(1,'#a3241a'); g.fillStyle=red; g.fill();
+  g.strokeStyle='#d9a441'; g.lineWidth=4; g.stroke();
+  g.fillStyle='rgba(226,176,79,.45)'; for (let y=60;y<H;y+=70){ const w=44+(66-44)*y/H; g.beginPath(); g.arc(540,y,w*.32,0,6.283); g.fill(); }
+  return { c, top }; })();
 function sprite(im,x,y,s,ay=1){ if(!im?.naturalWidth) return; const w=im.naturalWidth*s,h=im.naturalHeight*s; ctx.drawImage(im,x-w/2,y-h*ay,w,h); }
 function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 function tag(text,x,y,s,style,av,maxW){
@@ -481,6 +499,7 @@ function frame(now){
   const dt=Math.min((now-last)/1000,.05); last=now; const t=now/1000;
   ctx.clearRect(0,0,1080,1920);
   drawHall(dt);
+  ctx.drawImage(FLOOR_IMG.c,0,FLOOR_IMG.top);
   // light: halo around the statue, candle flicker, incense smoke
   haloPulse=Math.max(0,haloPulse-dt*.4);
   aura(t); clouds(t);
@@ -514,7 +533,7 @@ function frame(now){
     else if (v.seat){ v.x+=(v.seat.x-v.x)*Math.min(1,dt*3); v.y+=(v.seat.y-v.y)*Math.min(1,dt*3); }      // glide when the grid grows
     v.fade=Math.min(1,v.fade+dt*2); v.glow=Math.max(0,v.glow-dt*.45); v.bow=Math.max(0,v.bow-dt*.7);
     const away = v.state==='walk' || v.state==='pace' || v.state==='kneel' || v.state==='bow' || v.state==='standup' && v.next==='walk';
-    const ws = away ?(.26+.26*Math.max(0,Math.min(1,(v.y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop)))) * 1.12 * ((6/((GRID[cap]||GRID[24])[0]))**.4) : s;
+    const ws = away ?(.26+.26*Math.max(0,Math.min(1,(v.y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop)))) * 1.12 * ((6/seatCols)**.4) : s;
     if (v.glow>0 || v.skin==='master'){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=Math.max(v.glow*.75, v.skin==='master'?.35+.1*Math.sin(t*1.6):0);
       const g=ctx.createRadialGradient(v.x,v.y-110*ws,8,v.x,v.y-110*ws,200*ws); g.addColorStop(0,'rgba(255,205,120,.95)'); g.addColorStop(1,'rgba(255,160,60,0)'); ctx.fillStyle=g; ctx.fillRect(v.x-230*ws,v.y-340*ws,460*ws,400*ws); ctx.restore(); }
     const breathe = v.state==='sit' ? Math.sin(t*1.1+v.phase)*2*ws : 0, bowK = v.state==='sit' ? Math.sin(Math.min(1,v.bow)*Math.PI)*.04 : v.state==='bow' ? Math.max(0,Math.sin(v.bowT/1.2*Math.PI))*.16 : 0;
@@ -531,7 +550,7 @@ function frame(now){
     const sx=v.seat, cols=(GRID[cap]||GRID[24])[0];
     // ở hai cột sát lối đi, tên được lấn ra lối đi cho đủ chữ
     const inner = cap>64 && sx && v.state==='sit' ? (sx.k===cols/2-1 ? 1 : sx.k===cols/2 ? -1 : 0) : 0;
-    if (cap<=64 || !sx || v.state!=='sit' || inner || sx.r===sx.rows-1 && cols<=10 || v.coins>=99 || v.skin==='master' || now-(v.spokeAt||-1e9)<90000)
+    if (cap<=64 || !sx || v.state!=='sit' || inner || sx.r===sx.rows-1 && cols<=8 || v.coins>=99 || v.skin==='master' || now-(v.spokeAt||-1e9)<90000)
       tag(v.name, v.x+(inner ? inner*sx.aisle*.45 : 0), ty, ws, v.skin==='master'||v.coins>=99?'gold':'', avatar(v.avatar), v.state==='sit' ? (sx?.gap||0) + (inner ? sx.aisle*.9 : 0) : 0);
     if (v.bubble && now<v.bubble.until) bubbles.push([v.bubble.text, v.x, ty-Math.max(18,30*ws/.4), ws]); else v.bubble=null;
   }
