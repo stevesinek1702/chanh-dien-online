@@ -447,10 +447,10 @@ function frame(now){
     } else if (v.state==='sitting'){ v.sitT+=dt; v.frame=4+Math.min(3,Math.floor(v.sitT/.22)); if (v.sitT>.9){ v.state='sit'; v.frame=7; } }
     else if (v.state==='standup'){ v.sitT+=dt; v.frame=7-Math.min(3,Math.floor(v.sitT/.22)); if (v.sitT>.9){ v.state='pace'; v.frame=0; } }
     else if (v.state==='pace'){                                   // thiền hành: đi chậm theo các điểm, xong thì đi về chỗ (trạng thái walk)
-      const p=v.path[0], dx=p.x-v.x, dy=p.y-v.y, d=Math.hypot(dx,dy), sp=62*dt;
+      const p=v.path[0], dx=p.x-v.x, dy=p.y-v.y, d=Math.hypot(dx,dy), sp=125*dt;
       if (d<=sp){ v.x=p.x; v.y=p.y; v.path.shift(); if (!v.path.length) v.state='walk'; }
       else { v.x+=dx/d*sp; v.y+=dy/d*sp; if (Math.abs(dx)>2) v.flip=dx<0; }
-      v.ft+=dt; if (v.ft>.2){ v.ft=0; v.frame=(v.frame+1)%4; }
+      v.ft+=dt; if (v.ft>.13){ v.ft=0; v.frame=(v.frame+1)%4; }
     }
     else if (v.seat){ v.x+=(v.seat.x-v.x)*Math.min(1,dt*3); v.y+=(v.seat.y-v.y)*Math.min(1,dt*3); }      // glide when the grid grows
     v.fade=Math.min(1,v.fade+dt*2); v.glow=Math.max(0,v.glow-dt*.45); v.bow=Math.max(0,v.bow-dt*.7);
