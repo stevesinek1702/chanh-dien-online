@@ -185,4 +185,6 @@ TikTok cho phép một người có nhiều tài khoản nhưng "không để l�
 
 - Tên thiền đường, dòng phụ, giọng đọc (Nam Minh / Hoài My), nhịp tụng, nhịp nhắc thiền khác nhau (bảng điều khiển từng kênh).
 - Nhạc riêng cho từng kênh (`assets/music/kenh1/`…).
+- Gian thờ riêng: overlay dùng `assets/hall.jpg`, rồi luân phiên các ảnh trong `assets/gian-tho/` (hoặc `assets/gian-tho/kenh1/` cho riêng kênh 1). Thời gian đổi đặt ở *Bảng điều khiển → Đổi gian thờ mỗi … phút*, mặc định 10, 0 là không đổi. Ảnh gian thờ mới nên được ghép tượng vào đúng khung khám thờ như `hall.jpg` (giữa ảnh, đầu tượng ở khoảng y = 447 trên ảnh 1080×1920), để hào quang và mây trôi khớp chỗ.
+- Chuông riêng: đặt file `.mp3` vào `assets/chuong/` (hoặc `assets/chuong/kenh1/`). Thư mục này không được đưa lên GitHub; chỉ dùng chuông đã chắc quyền phát.
 - Tốt nhất là mỗi kênh một chủ đề, một khung giờ, và có người thật ghé vào nói chuyện, trả lời bình luận định kỳ.

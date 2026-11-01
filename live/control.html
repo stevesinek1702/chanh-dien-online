@@ -129,6 +129,7 @@ code{background:#0f0805;border:1px solid var(--line);border-radius:6px;padding:1
     </div>
     <div class="row">
       <label>Nhắc thiền mỗi (phút, 0 = tắt)<input id="mindfulEveryMin" type="number" min="0" max="60" value="7"></label>
+      <label title="Ảnh trong assets/gian-tho">Đổi gian thờ mỗi (phút, 0 = không đổi)<input id="hallEveryMin" type="number" min="0" max="120" value="10"></label>
       <button id="btnMindful">Nhắc thiền ngay</button>
     </div>
     <p class="hint">Cảm ơn quà chỉ là lời cảm ơn và chúc chung. Lời cầu an dành cho mọi người bình luận như nhau, không phụ thuộc quà (đúng quy định TikTok về không dùng nội dung để thúc đẩy tặng quà).</p>
@@ -155,7 +156,7 @@ const CH = new URLSearchParams(location.search).get('ch') || '';
 let ws = null, chId = CH;
 const send = (cmd, extra={}) => ws?.readyState===1 && ws.send(JSON.stringify({ t:'ctl', cmd, ...extra }));
 function logLine(s){ const el=$('log'); el.textContent += s + '\n'; if (el.textContent.length > 60000) el.textContent = el.textContent.slice(-40000); el.scrollTop = el.scrollHeight; }
-const SETTING_IDS = ['voice','pitch','rate','music','mo','moChantOnly','autoChant','moBpm','chantEveryMin','dedicateNames','thankVoice','thankMin','welcomeVoice','prayerReplies','socialVoice','mindfulEveryMin','title','subtitle','seatMode','joinOnEnter','aiNote'];
+const SETTING_IDS = ['voice','pitch','rate','music','mo','moChantOnly','autoChant','moBpm','chantEveryMin','dedicateNames','thankVoice','thankMin','welcomeVoice','prayerReplies','socialVoice','mindfulEveryMin','hallEveryMin','title','subtitle','seatMode','joinOnEnter','aiNote'];
 function fillSettings(s){ for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } }
 function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' ? +el.value : el.value; } return o; }
 const people = new Map();

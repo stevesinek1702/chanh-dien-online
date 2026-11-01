@@ -99,6 +99,7 @@ const A = {};
 const IMG = { hall:'/assets/hall.jpg', monk:'/assets/c_monk.png', nun:'/assets/c_nun.png', granny:'/assets/c_granny.png', man:'/assets/c_man.png',
   woman:'/assets/c_woman.png', child:'/assets/c_child.png', anim_man:'/assets/anim_man.png', anim_woman:'/assets/anim_woman.png', anim_granny:'/assets/anim_granny.png',
   master:'/assets/c_master.png',                       // tùy chọn: hình vị trụ trì riêng; không có file thì dùng c_monk.png
+  cloud:'/assets/fx_cloud.png',
   lotus:'/assets/fx_lotus.png', halo:'/assets/fx_halo.png', bell:'/assets/fx_bell.png', incense:'/assets/fx_incense.png', petal:'/assets/fx_petal.png' };
 for (const [k,src] of Object.entries(IMG)){ const im=new Image(); im.src=src; A[k]=im; }
 const ANIM = { man:{fw:212,fh:300,seatH:210}, woman:{fw:212,fh:300,seatH:220}, granny:{fw:195,fh:300,seatH:222} };
@@ -230,7 +231,7 @@ function loadBell(url){
 function bell(big){
   if(!audioOn) return; const t=AC.currentTime, k=big?1.7:1;
   if (bellBuf){
-    const src=AC.createBufferSource(), g=AC.createGain(), len=Math.min(bellBuf.duration,9), v=big?.85:.6;
+    const src=AC.createBufferSource(), g=AC.createGain(), len=Math.min(bellBuf.duration,9), v=big?.6:.42;
     src.buffer=bellBuf; g.gain.setValueAtTime(v,t); g.gain.setValueAtTime(v,Math.max(t,t+len-1.5)); g.gain.linearRampToValueAtTime(0,t+len);
     src.connect(g); g.connect(sfx); src.start(t,0,len); src.onended=()=>{ src.disconnect(); g.disconnect(); };
     haloPulse=1; return;
@@ -299,7 +300,7 @@ function connect(){
       case 'state':
         Object.assign(settings,m.settings); applySettings(); startedAt=m.startedAt;
         TRACKS = Array.isArray(m.music) ? m.music : []; if (audioOn && !music) nextTrack();
-        loadBell(typeof m.bell==='string' ? m.bell : null);
+        loadBell(typeof m.bell==='string' ? m.bell : null); setHalls(m.halls);
         visitors.clear(); order=[]; layout(m.cap); for (const p of m.viewers) addVisitor(p,true); updateCount(); renderMerit(); break;
       case 'settings': Object.assign(settings,m.settings); applySettings(); if (m.cap!==cap){ layout(m.cap); updateCount(); } break;
       case 'join': if (m.cap!==cap) layout(m.cap); addVisitor(m.v, m.v.demo && visitors.size>8); updateCount(); break;
@@ -326,6 +327,57 @@ connect();
 
 /* ======================= render ======================= */
 const ctx=document.getElementById('c').getContext('2d');
+/* gian thờ: hall.jpg rồi các ảnh trong assets/gian-tho, đổi mỗi hallEveryMin phút, chuyển dần trong 4 giây.
+   Mọi ảnh dùng chung sàn và bồ đoàn, chỉ khác khám thờ, nên người ngồi và vị trụ trì không phải dời chỗ. */
+let HALLS=[IMG.hall], hallIdx=0, hallCur=null, hallNext=null, hallNextIdx=0, hallFade=0, hallAt=performance.now(), hallLoading=false;
+function setHalls(list){
+  const l = Array.isArray(list) && list.length ? list.filter(u => typeof u==='string') : [IMG.hall];
+  if (l.join('|')===HALLS.join('|')) return;
+  HALLS=l; if (hallIdx>=HALLS.length) { hallIdx=0; hallCur=null; }
+}
+function drawHall(dt){
+  const every=(+settings.hallEveryMin||0)*60000, now=performance.now();
+  if (!hallNext && !hallLoading && HALLS.length>1 && every>0 && now-hallAt>=every){
+    hallAt=now; hallLoading=true; const i=(hallIdx+1)%HALLS.length, im=new Image();
+    im.onload=()=>{ hallLoading=false; hallNext=im; hallNextIdx=i; hallFade=0; };
+    im.onerror=()=>{ hallLoading=false; hallIdx=i; };           // ảnh hỏng: bỏ qua, lần sau thử ảnh kế tiếp
+    im.src=HALLS[i];
+  }
+  const cur=hallCur||A.hall;
+  if (cur.naturalWidth) ctx.drawImage(cur,0,0,1080,1920);
+  if (hallNext){
+    hallFade=Math.min(1,hallFade+dt/4); ctx.globalAlpha=hallFade; ctx.drawImage(hallNext,0,0,1080,1920); ctx.globalAlpha=1;
+    if (hallFade>=1){ hallCur=hallNext; hallIdx=hallNextIdx; hallNext=null; }
+  }
+}
+/* hào quang quanh đầu tượng: tia sáng xoay chậm và vầng sáng thở; thỉnh chuông thì bừng lên. Tâm cố định vì
+   mọi ảnh gian thờ được ghép tượng vào cùng một khung trong khám thờ. */
+const AURA = { x:540, y:447, r:112 };
+function aura(t){
+  const {x,y,r}=AURA, k=1+haloPulse*.3, L=r*2.4*k;
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.translate(x,y);
+  // vầng sáng hình vòng: trong lòng vòng để trống, gương mặt không bị chói
+  const d=ctx.createRadialGradient(0,0,r*.72,0,0,r*1.5*k); d.addColorStop(0,'rgba(255,220,140,0)'); d.addColorStop(.3,'rgba(255,215,130,.3)'); d.addColorStop(1,'rgba(255,190,90,0)');
+  ctx.globalAlpha=Math.min(1,.5+.18*Math.sin(t*1.2)+haloPulse*.5); ctx.fillStyle=d; ctx.beginPath(); ctx.arc(0,0,r*1.5*k,0,6.2832); ctx.fill();
+  ctx.rotate(t*.035);
+  const g=ctx.createRadialGradient(0,0,r*.9,0,0,L); g.addColorStop(0,'rgba(255,220,140,0)'); g.addColorStop(.1,'rgba(255,215,130,.32)'); g.addColorStop(.55,'rgba(255,195,100,.1)'); g.addColorStop(1,'rgba(255,180,80,0)');
+  ctx.globalAlpha=Math.min(1,.45+.12*Math.sin(t*.9)+haloPulse*.5); ctx.fillStyle=g; ctx.beginPath();
+  for (let i=0;i<24;i++){ const a=i/24*6.2832, w=.035+.018*Math.sin(t*.7+i*2.3); ctx.moveTo(0,0); ctx.arc(0,0,L*(.78+.22*Math.sin(t*.5+i*1.7)),a-w,a+w); ctx.closePath(); }
+  ctx.fill(); ctx.restore();
+}
+/* mây bạc trôi chậm ngang qua chân tượng: ra vào mờ dần ở hai mép khám thờ, nhấp nhô rất nhẹ */
+const CLOUDS = [ { y:782, s:.52, v:7, ph:0 }, { y:800, s:.42, v:-5, ph:.45 }, { y:764, s:.36, v:9, ph:.8 } ];
+function clouds(t){
+  if (!A.cloud.naturalWidth) return;
+  const left=395, span=290;
+  ctx.save();
+  for (const c of CLOUDS){
+    const w=A.cloud.naturalWidth*c.s, run=span+w, pos=(((c.ph*run + t*c.v) % run) + run) % run, x=left-w/2+pos;
+    const u=(x-left)/span; ctx.globalAlpha=.82*Math.max(0,Math.min(1,Math.min(u,1-u)*3.5));
+    if (ctx.globalAlpha>0) sprite(A.cloud, x, c.y+Math.sin(t*.35+c.ph*7)*3, c.s, .5);
+  }
+  ctx.restore();
+}
 function sprite(im,x,y,s,ay=1){ if(!im?.naturalWidth) return; const w=im.naturalWidth*s,h=im.naturalHeight*s; ctx.drawImage(im,x-w/2,y-h*ay,w,h); }
 function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 function tag(text,x,y,s,style,av,maxW){
@@ -350,10 +402,10 @@ let last=performance.now();
 function frame(now){
   requestAnimationFrame(frame); const dt=Math.min((now-last)/1000,.05); last=now; const t=now/1000;
   ctx.clearRect(0,0,1080,1920);
-  if (A.hall.naturalWidth) ctx.drawImage(A.hall,0,0,1080,1920);
-  // light: halo pulse behind the Buddha, candle flicker, incense smoke
+  drawHall(dt);
+  // light: halo around the statue, candle flicker, incense smoke
   haloPulse=Math.max(0,haloPulse-dt*.4);
-  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.2+.08*Math.sin(t*1.2)+haloPulse*.5; sprite(A.halo,540,560,2.7+haloPulse*.35,.5); ctx.restore();
+  aura(t); clouds(t);
   ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.05+.035*Math.sin(t*9)*Math.sin(t*13.3); ctx.fillStyle='#ffb347'; ctx.fillRect(0,300,1080,800); ctx.restore();
   ctx.save(); ctx.fillStyle='#efe3cc'; for (let i=0;i<16;i++){ const a=(t*.08+i*.0625)%1; ctx.globalAlpha=.28*(1-a); ctx.beginPath(); ctx.arc(540+Math.sin(a*7+i)*20*a, 1000-a*280, 4+a*15, 0, 6.28); ctx.fill(); } ctx.restore();
   // the abbot at the altar (illustration)

@@ -101,6 +101,7 @@ const DEFAULT_SETTINGS = {
   prayerReplies: true,               // đáp lời cầu an cho bình luận có ý cầu nguyện, ai cũng như nhau
   socialVoice: true,                 // cảm ơn theo dõi, chia sẻ
   mindfulEveryMin: 7,                // lời nhắc thiền giữa các thời tụng (0 = tắt)
+  hallEveryMin: 10,                  // có ảnh trong assets/gian-tho thì đổi gian thờ mỗi chừng ấy phút (0 = không đổi)
   seatMode: 'auto',                // auto | 24 | 36 | 64 | 100
   joinOnEnter: false,                // also seat viewers who only enter the room
   aiNote: true,                      // dòng nhỏ ghi rõ hình, nhạc, giọng đọc do AI tạo
@@ -110,7 +111,7 @@ const SETTING_RULES = {
   title: v => String(v).slice(0, 40), subtitle: v => String(v).slice(0, 60),
   voice: (v, cur) => ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'].includes(v) ? v : cur,
   pitch: v => clamp(v, -50, 50), rate: v => clamp(v, -50, 50), moBpm: v => clamp(v, 20, 120),
-  chantEveryMin: v => clamp(v, 1, 60), thankMin: v => clamp(v, 1, 50000), mindfulEveryMin: v => clamp(v, 0, 60),
+  chantEveryMin: v => clamp(v, 1, 60), thankMin: v => clamp(v, 1, 50000), mindfulEveryMin: v => clamp(v, 0, 60), hallEveryMin: v => clamp(v, 0, 120),
   music: Boolean, mo: Boolean, moChantOnly: Boolean, autoChant: Boolean, dedicateNames: Boolean,
   thankVoice: Boolean, welcomeVoice: Boolean, prayerReplies: Boolean, socialVoice: Boolean, joinOnEnter: Boolean, aiNote: Boolean,
   seatMode: v => ['auto', '24', '36', '64', '100'].includes(String(v)) ? String(v) : 'auto',
@@ -223,7 +224,8 @@ class Channel {
   snapshot(){
     return { t: 'state', ch: this.id, name: this.name, uniqueId: this.uniqueId, want: this.want, settings: this.settings,
       viewers: [...this.viewers.values()].map(v => this.pub(v)), cap: this.capacity(), startedAt: this.startedAt,
-      tiktok: this.tt, music: musicList(this.id), bell: mp3s('chuong', this.id)[0] || null, bots: !!this.botTimer };
+      tiktok: this.tt, music: musicList(this.id), bell: mp3s('chuong', this.id)[0] || null,
+      halls: ['/assets/hall.jpg', ...mp3s('gian-tho', this.id, /\.(jpe?g|png|webp)$/i)], bots: !!this.botTimer };
   }
   summary(){
     const ov = this.overlayClients();
@@ -572,8 +574,9 @@ function pushStatus(chId){
 // Nhạc: mọi file .mp3 trong assets/music. Kênh nào có thư mục riêng assets/music/<mã kênh>/ thì dùng nhạc riêng,
 // để các kênh không phát y hệt nhau.
 // Chuông cũng vậy: file .mp3 đầu tiên trong assets/chuong (hoặc assets/chuong/<mã kênh>/); không có thì overlay tự tạo tiếng chuông.
-function mp3s(folder, chId){
-  const scan = (...dir) => { try { return fs.readdirSync(path.join(ROOT, 'assets', folder, ...dir)).filter(f => /\.mp3$/i.test(f) && !f.startsWith('.')).sort(); } catch { return []; } };
+// Gian thờ: assets/hall.jpg trước, rồi các ảnh trong assets/gian-tho (hoặc assets/gian-tho/<mã kênh>/), overlay luân phiên.
+function mp3s(folder, chId, re = /\.mp3$/i){
+  const scan = (...dir) => { try { return fs.readdirSync(path.join(ROOT, 'assets', folder, ...dir)).filter(f => re.test(f) && !f.startsWith('.')).sort(); } catch { return []; } };
   const own = scan(chId);
   if (own.length) return own.map(f => `/assets/${folder}/${chId}/${encodeURIComponent(f)}`);
   return scan().map(f => `/assets/${folder}/${encodeURIComponent(f)}`);
