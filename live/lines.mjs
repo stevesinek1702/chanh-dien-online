@@ -74,9 +74,11 @@ export const SHARE = {
 // Chỉ khớp nguyên từ: "cua cốm" không được hiểu thành "ốm".
 function words(...list){ return new RegExp(`(?<!\\p{L})(${list.join('|')})(?!\\p{L})`, 'u'); }
 export const PRAYER_TOPICS = [
-  { re: words('cầu siêu', 'hương linh', 'vong linh', 'người mất', 'qua đời', 'đã khuất', 'siêu thoát', 'vãng sanh', 'vãng sinh', 'tạ thế', 'mới mất'), lines: [
-    'Nguyện cầu hương linh người thân của {name} được an nghỉ, siêu sanh Tịnh độ.',
-    'Thiền đường cùng {name} hồi hướng đến người thân đã khuất, nguyện hương linh được nhẹ nhàng, thanh thản.',
+  // Chỉ những từ chắc chắn nói về người đã khuất ("mới mất việc", "người mất ví" không được coi là tang).
+  // Không nhắc riêng người đã mất: nguyện chung cho Cửu Huyền Thất Tổ, tên người xem đứng đầu câu là người cùng nguyện.
+  { re: words('cầu siêu', 'hương linh', 'vong linh', 'qua đời', 'đã khuất', 'siêu thoát', 'vãng sanh', 'vãng sinh', 'tạ thế', 'từ trần', 'quy tiên', 'lâm chung'), lines: [
+    'Thiền đường xin cùng {name} nguyện cho Cửu Huyền Thất Tổ được siêu sanh Tịnh độ.',
+    '{name} ơi, thiền đường cùng bạn hồi hướng, nguyện Cửu Huyền Thất Tổ được siêu sanh Tịnh độ, an nhiên nơi cõi lành.',
   ] },
   { re: words('cha mẹ', 'bố mẹ', 'ba mẹ', 'ba má', 'song thân', 'ông bà'), lines: [
     'Nguyện cầu cho song thân của {name} luôn mạnh khỏe, sống lâu cùng con cháu.',
