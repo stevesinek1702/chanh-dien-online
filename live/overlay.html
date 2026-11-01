@@ -460,7 +460,10 @@ function frame(now){
     const breathe = v.state==='sit' ? Math.sin(t*1.1+v.phase)*2*ws : 0, bowK = v.state==='sit' ? Math.sin(Math.min(1,v.bow)*Math.PI)*.04 : 0;
     ctx.save(); ctx.globalAlpha=v.fade; ctx.translate(v.x,v.y); if (bowK) ctx.transform(1,0,0,1-bowK,0,0);
     let topY;
-    if (anim){ const a=ANIM[v.skin], k=ws*1.05*260/a.seatH; if (v.flip) ctx.scale(-1,1); ctx.drawImage(A['anim_'+v.skin], v.frame*a.fw,0,a.fw,a.fh, -a.fw*k/2, -a.fh*k+breathe, a.fw*k, a.fh*k); topY=(v.state==='sit'?a.seatH:a.fh*.97)*k; }
+    // Hình người vẽ nghiêng 3/4 sang phải. Ngồi ở nửa phải thì lật lại: cả hai khối đều nghiêng vào giữa, hướng về tượng.
+    const seated = v.state==='sit' || v.state==='sitting' || v.state==='standup';
+    if (seated ? v.x>545 : v.flip) ctx.scale(-1,1);
+    if (anim){ const a=ANIM[v.skin], k=ws*1.05*260/a.seatH; ctx.drawImage(A['anim_'+v.skin], v.frame*a.fw,0,a.fw,a.fh, -a.fw*k/2, -a.fh*k+breathe, a.fw*k, a.fh*k); topY=(v.state==='sit'?a.seatH:a.fh*.97)*k; }
     else { const sk = v.skin==='master'?'monk':v.skin; sprite(A[sk]||A.man,0,breathe,ws*1.05); topY=260*ws; }
     ctx.restore();
     const ty=v.y-topY-14*ws/.4;
